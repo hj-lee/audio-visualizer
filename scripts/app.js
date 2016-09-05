@@ -130,9 +130,9 @@ function visualize() {
   console.log(visualSetting);
 
   if(visualSetting == "sinewave") {
-    analyser.fftSize = 1024;
-    var NARRAY = 3
-    var bufferLength = analyser.frequencyBinCount;
+    analyser.fftSize = 2048;
+    var NARRAY = 10
+    var bufferLength = analyser.fftSize;
     console.log(bufferLength);
     var dataArrayArray = new Array(NARRAY)
     for(var i = 0; i < NARRAY; i++) {
@@ -143,6 +143,11 @@ function visualize() {
 
     canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
 
+    var background = 'rgb(0, 200, 200)'
+    
+    canvasCtx.fillStyle = background;
+    canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+    
     var arrayIdx = 0;
     
     function draw() {
@@ -151,24 +156,20 @@ function visualize() {
 
       analyser.getByteTimeDomainData(dataArrayArray[arrayIdx]);
 
-      canvasCtx.fillStyle = 'rgb(200, 200, 200)';
-      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
-
-      canvasCtx.lineWidth = 1;
-      canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
-
-      canvasCtx.beginPath();
+      if (NARRAY == 1) {
+        canvasCtx.fillStyle = background;
+        canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+      }
+      
+      // canvasCtx.lineWidth = 1;
+      // canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
 
       var sliceWidth = WIDTH * 1.0 / bufferLength;
-
-      for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
+     
+      
+      function drawSub(idx) {
+        canvasCtx.beginPath();
         var x = 0;
-        if (dataIdx == NARRAY) {
-          canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
-        } else {
-          canvasCtx.strokeStyle = 'rgb(0, 250, 0)';
-        }
-        var idx = (arrayIdx + dataIdx) % NARRAY
         for(var i = 0; i < bufferLength; i++) {
    
           var v = dataArrayArray[idx][i] / 128.0;
@@ -179,20 +180,49 @@ function visualize() {
           } else {
             canvasCtx.lineTo(x, y);
           }
-
           x += sliceWidth;
         }
-        canvasCtx.lineTo(canvas.width, canvas.height/2);
+        // canvasCtx.lineTo(canvas.width, canvas.height/2);
         canvasCtx.stroke();
+      };
+
+      if (NARRAY > 1) {
+        canvasCtx.lineWidth = 3;
+        canvasCtx.strokeStyle = background;
+        drawSub((arrayIdx+1)%NARRAY);
       }
+      if (NARRAY > 2) {
+        canvasCtx.lineWidth = 1;
+        canvasCtx.strokeStyle = 'rgb(0, 250, 0)';
+        drawSub((arrayIdx + NARRAY - 1)%NARRAY);
+      }
+
+      canvasCtx.lineWidth = 1;
+      canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+      drawSub(arrayIdx);
+      
+      
+
+      
+      // for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
+      //   if (dataIdx == NARRAY) {
+      //     canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+      //   } else {
+      //     canvasCtx.strokeStyle = 'rgb(0, 250, 0)';
+      //   }
+      //   var idx = (arrayIdx + dataIdx) % NARRAY
+      //   drawSub(idx);
+      // }
+
+      
       arrayIdx = (arrayIdx+1) % NARRAY
-    };
+    }
 
     draw();
 
   } else if(visualSetting == "frequencybars") {
-    analyser.fftSize = 256;
-    var NARRAY = 5
+    analyser.fftSize = 512;
+    var NARRAY = 10
     var bufferLength = analyser.frequencyBinCount;
     console.log(bufferLength);
     var dataArrayArray = new Array(NARRAY)
@@ -228,7 +258,7 @@ function visualize() {
             color = (125/NARRAY) * dataIdx;
           }
           canvasCtx.fillStyle = 'rgb(' + color + ',' + 125 + ',' + 125 + ')';
-          canvasCtx.fillRect(x,HEIGHT-barHeight,barWidth,1+dataIdx*3/NARRAY);
+          canvasCtx.fillRect(x,HEIGHT-barHeight,barWidth,1+dataIdx*5/NARRAY);
 
           x += barWidth + 1;
         }
