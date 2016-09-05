@@ -23,7 +23,7 @@ var mute = document.querySelector('.mute');
 var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
-analyser.smoothingTimeConstant = 0.85;
+analyser.smoothingTimeConstant = 0.0;
 
 var distortion = audioCtx.createWaveShaper();
 var gainNode = audioCtx.createGain();
@@ -107,7 +107,7 @@ if (navigator.getUserMedia) {
          convolver.connect(gainNode);
          gainNode.connect(audioCtx.destination);
 
-      	 visualize();
+      	 draw();
          voiceChange();
 
       },
@@ -130,78 +130,110 @@ function visualize() {
   console.log(visualSetting);
 
   if(visualSetting == "sinewave") {
-    analyser.fftSize = 2048;
-    var bufferLength = analyser.fftSize;
+    analyser.fftSize = 1024;
+    var NARRAY = 3
+    var bufferLength = analyser.frequencyBinCount;
     console.log(bufferLength);
-    var dataArray = new Uint8Array(bufferLength);
+    var dataArrayArray = new Array(NARRAY)
+    for(var i = 0; i < NARRAY; i++) {
+      dataArrayArray[i] = new Uint8Array(bufferLength)
+    }
+    console.log(bufferLength);
+    // var dataArray = new Uint8Array(bufferLength);
 
     canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
 
+    var arrayIdx = 0;
+    
     function draw() {
 
       drawVisual = requestAnimationFrame(draw);
 
-      analyser.getByteTimeDomainData(dataArray);
+      analyser.getByteTimeDomainData(dataArrayArray[arrayIdx]);
 
       canvasCtx.fillStyle = 'rgb(200, 200, 200)';
       canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
-      canvasCtx.lineWidth = 2;
+      canvasCtx.lineWidth = 1;
       canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
 
       canvasCtx.beginPath();
 
       var sliceWidth = WIDTH * 1.0 / bufferLength;
-      var x = 0;
 
-      for(var i = 0; i < bufferLength; i++) {
-   
-        var v = dataArray[i] / 128.0;
-        var y = v * HEIGHT/2;
-
-        if(i === 0) {
-          canvasCtx.moveTo(x, y);
+      for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
+        var x = 0;
+        if (dataIdx == NARRAY) {
+          canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
         } else {
-          canvasCtx.lineTo(x, y);
+          canvasCtx.strokeStyle = 'rgb(0, 250, 0)';
         }
+        var idx = (arrayIdx + dataIdx) % NARRAY
+        for(var i = 0; i < bufferLength; i++) {
+   
+          var v = dataArrayArray[idx][i] / 128.0;
+          var y = v * HEIGHT/2;
 
-        x += sliceWidth;
+          if(i === 0) {
+            canvasCtx.moveTo(x, y);
+          } else {
+            canvasCtx.lineTo(x, y);
+          }
+
+          x += sliceWidth;
+        }
+        canvasCtx.lineTo(canvas.width, canvas.height/2);
+        canvasCtx.stroke();
       }
-
-      canvasCtx.lineTo(canvas.width, canvas.height/2);
-      canvasCtx.stroke();
+      arrayIdx = (arrayIdx+1) % NARRAY
     };
 
     draw();
 
   } else if(visualSetting == "frequencybars") {
     analyser.fftSize = 256;
+    var NARRAY = 5
     var bufferLength = analyser.frequencyBinCount;
     console.log(bufferLength);
-    var dataArray = new Uint8Array(bufferLength);
+    var dataArrayArray = new Array(NARRAY)
+    for(var i = 0; i < NARRAY; i++) {
+      dataArrayArray[i] = new Uint8Array(bufferLength)
+    }
+    // var dataArray = new Uint8Array(bufferLength); 
 
     canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
 
+    var arrayIdx = 0;
+    
     function draw() {
       drawVisual = requestAnimationFrame(draw);
 
-      analyser.getByteFrequencyData(dataArray);
+      analyser.getByteFrequencyData(dataArrayArray[arrayIdx]);
 
       canvasCtx.fillStyle = 'rgb(0, 0, 0)';
       canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
       var barWidth = (WIDTH / bufferLength) * 2.5;
       var barHeight;
-      var x = 0;
 
-      for(var i = 0; i < bufferLength; i++) {
-        barHeight = dataArray[i];
+      for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
+        var x = 0;
+        var idx = (arrayIdx + dataIdx) % NARRAY
+        for(var i = 0; i < bufferLength; i++) {
+          barHeight = dataArrayArray[idx][i];
 
-        canvasCtx.fillStyle = 'rgb(' + (barHeight+100) + ',50,50)';
-        canvasCtx.fillRect(x,HEIGHT-barHeight/2,barWidth,barHeight/2);
+          // canvasCtx.fillStyle = 'rgb(' + (barHeight+100) + ',50,50)';
+          var color = 250;
+          if (dataIdx < NARRAY) {
+            color = (125/NARRAY) * dataIdx;
+          }
+          canvasCtx.fillStyle = 'rgb(' + color + ',' + 125 + ',' + 125 + ')';
+          canvasCtx.fillRect(x,HEIGHT-barHeight,barWidth,1+dataIdx*3/NARRAY);
 
-        x += barWidth + 1;
+          x += barWidth + 1;
+        }
       }
+      arrayIdx = (arrayIdx + 1) % NARRAY
     };
 
     draw();
@@ -237,6 +269,7 @@ function voiceChange() {
 
 }
 
+visualize();
 // event listeners to change visualize and voice settings
 
 visualSelect.onchange = function() {
