@@ -10,7 +10,9 @@ navigator.getUserMedia = (navigator.getUserMedia ||
 // window. is needed otherwise Safari explodes
 
 var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-var voiceSelect = document.getElementById("voice");
+// var voiceSelect = document.getElementById("voice");
+
+
 var source;
 var stream;
 
@@ -33,6 +35,10 @@ var intendedWidth = document.querySelector('.wrapper').clientWidth;
 canvas.setAttribute('width',intendedWidth);
 
 var visualSelect = document.getElementById("visual");
+var fftSizeSelect = document.getElementById("fftsize");
+var nlinesSelect = document.getElementById("nlines");
+
+var sampleRateElm = document.getElementById("sampleRate");
 
 var drawVisual;
 
@@ -50,7 +56,9 @@ if (navigator.getUserMedia) {
       function(stream) {
         source = audioCtx.createMediaStreamSource(stream);
         console.log('success callback - ' + source.context.sampleRate);
-        
+
+	sampleRateElm.innerText = source.context.sampleRate;
+	
          source.connect(analyser);
 
       	 visualize();
@@ -73,8 +81,8 @@ function visualize() {
   console.log(visualSetting);
 
   if(visualSetting == "sinewave") {
-    analyser.fftSize = 2048;
-    var NARRAY = 10
+    analyser.fftSize = Number(fftSizeSelect.value);
+    var NARRAY = Number(nlinesSelect.value);
     var bufferLength = analyser.fftSize;
     console.log(bufferLength);
     var dataArrayArray = new Array(NARRAY)
@@ -108,7 +116,6 @@ function visualize() {
       // canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
 
       var sliceWidth = WIDTH * 1.0 / bufferLength;
-     
       
       function drawSub(idx) {
         canvasCtx.beginPath();
@@ -150,8 +157,8 @@ function visualize() {
     draw();
 
   } else if(visualSetting == "frequencybars") {
-    analyser.fftSize = 4096;
-    var NARRAY = 5
+    analyser.fftSize = Number(fftSizeSelect.value);
+    var NARRAY = Number(nlinesSelect.value);
     var bufferLength = analyser.frequencyBinCount;
     console.log(bufferLength);
     var dataArrayArray = new Array(NARRAY)
@@ -171,26 +178,44 @@ function visualize() {
       canvasCtx.fillStyle = 'rgb(0, 0, 0)';
       canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
-      var barWidth = (WIDTH / bufferLength) * 2.5;
       var barHeight;
+      var maxDrawFreq = Math.max(bufferLength, 512);
+      var barWidth = (WIDTH / maxDrawFreq) * 2.5;
 
       for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
         var idx = (arrayIdx + dataIdx) % NARRAY
 
         var x = 0;
-        canvasCtx.beginPath();
         var color = 250;
+        var lineWidth = 3;
         if (dataIdx < NARRAY) {
-          color = (125/NARRAY) * dataIdx;
-        }
-        canvasCtx.fillStyle = 'rgb(' + color + ',' + 125 + ',' + 125 + ')';
-        for(var i = 0; i < bufferLength; i++) {
+          color = (125 * dataIdx / NARRAY).toFixed();
+          lineWidth = 1;
+        } 
+        // console.log(color)
+
+        canvasCtx.lineWidth = lineWidth;
+        canvasCtx.strokeStyle = 'rgb(' + color + ',' + 125 + ',' + 125 + ')';
+        canvasCtx.beginPath();
+
+        for(var i = 0; i < maxDrawFreq; i++) {
           barHeight = dataArrayArray[idx][i];
 
-          canvasCtx.fillRect(x,HEIGHT-barHeight,barWidth,1+dataIdx*5/NARRAY);
+          var y = HEIGHT-barHeight;
+          var lx = Math.log(1+x) * WIDTH / 10
+          var ly = HEIGHT - Math.log(1+barHeight) * 35;
 
+          // lx = x;
+          ly = y;
+          if(i === 0) {
+            canvasCtx.moveTo(lx, ly);
+          } else {
+            canvasCtx.lineTo(lx, ly)
+          }
+          
           x += barWidth + 1;
         }
+        canvasCtx.stroke();
       }
       arrayIdx = (arrayIdx + 1) % NARRAY
     };
@@ -212,3 +237,6 @@ visualSelect.onchange = function() {
   visualize();
 }
 
+fftSizeSelect.onchange = visualSelect.onchange;
+
+nlinesSelect.onchange = visualSelect.onchange;
