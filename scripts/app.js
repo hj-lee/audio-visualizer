@@ -69,7 +69,6 @@ function visualize() {
   WIDTH = canvas.width;
   HEIGHT = canvas.height;
 
-
   var visualSetting = visualSelect.value;
   console.log(visualSetting);
 
@@ -151,7 +150,7 @@ function visualize() {
     draw();
 
   } else if(visualSetting == "frequencybars") {
-    analyser.fftSize = 2048;
+    analyser.fftSize = 4096;
     var NARRAY = 5
     var bufferLength = analyser.frequencyBinCount;
     console.log(bufferLength);
@@ -176,17 +175,18 @@ function visualize() {
       var barHeight;
 
       for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
-        var x = 0;
         var idx = (arrayIdx + dataIdx) % NARRAY
+
+        var x = 0;
+        canvasCtx.beginPath();
+        var color = 250;
+        if (dataIdx < NARRAY) {
+          color = (125/NARRAY) * dataIdx;
+        }
+        canvasCtx.fillStyle = 'rgb(' + color + ',' + 125 + ',' + 125 + ')';
         for(var i = 0; i < bufferLength; i++) {
           barHeight = dataArrayArray[idx][i];
 
-          // canvasCtx.fillStyle = 'rgb(' + (barHeight+100) + ',50,50)';
-          var color = 250;
-          if (dataIdx < NARRAY) {
-            color = (125/NARRAY) * dataIdx;
-          }
-          canvasCtx.fillStyle = 'rgb(' + color + ',' + 125 + ',' + 125 + ')';
           canvasCtx.fillRect(x,HEIGHT-barHeight,barWidth,1+dataIdx*5/NARRAY);
 
           x += barWidth + 1;
@@ -212,20 +212,3 @@ visualSelect.onchange = function() {
   visualize();
 }
 
-// voiceSelect.onchange = function() {
-//   voiceChange();
-// }
-
-// mute.onclick = voiceMute;
-
-// function voiceMute() {
-//   if(mute.id == "") {
-//     gainNode.gain.value = 0;
-//     mute.id = "activated";
-//     mute.innerHTML = "Unmute";
-//   } else {
-//     gainNode.gain.value = 1;
-//     mute.id = "";    
-//     mute.innerHTML = "Mute";
-//   }
-// }
