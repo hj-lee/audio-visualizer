@@ -53,7 +53,7 @@ if (navigator.getUserMedia) {
         
          source.connect(analyser);
 
-      	 visual();
+      	 visualize();
       },
 
       // Error callback
@@ -205,30 +205,6 @@ function visualize() {
 
 }
 
-function voiceChange() {
-  
-  distortion.oversample = '4x';
-  biquadFilter.gain.value = 0;
-  convolver.buffer = undefined;
-
-  var voiceSetting = voiceSelect.value;
-  console.log(voiceSetting);
-
-  if(voiceSetting == "distortion") {
-    distortion.curve = makeDistortionCurve(400);
-  } else if(voiceSetting == "convolver") {
-    convolver.buffer = concertHallBuffer;
-  } else if(voiceSetting == "biquad") {
-    biquadFilter.type = "lowshelf";
-    biquadFilter.frequency.value = 1000;
-    biquadFilter.gain.value = 25;
-  } else if(voiceSetting == "off") {
-    console.log("Voice settings turned off");
-  }
-
-}
-
-visualize();
 // event listeners to change visualize and voice settings
 
 visualSelect.onchange = function() {
