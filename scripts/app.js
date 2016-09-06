@@ -99,8 +99,17 @@ function visualize() {
     canvasCtx.fillStyle = background;
     canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
     
-    var arrayIdx = 0;
+
+    var sliceWidth = WIDTH * 1.0 / bufferLength;
+
+    var step = 1;
+    if (sliceWidth < 1.0) {
+      step = Math.floor((1/sliceWidth));
+    }
+    console.log('step - ' + step);
     
+    var arrayIdx = 0;
+
     function draw() {
 
       drawVisual = requestAnimationFrame(draw);
@@ -115,12 +124,11 @@ function visualize() {
       // canvasCtx.lineWidth = 1;
       // canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
 
-      var sliceWidth = WIDTH * 1.0 / bufferLength;
       
       function drawSub(idx) {
         canvasCtx.beginPath();
         var x = 0;
-        for(var i = 0; i < bufferLength; i++) {
+        for(var i = 0; i < bufferLength; i += step) {
    
           var v = dataArrayArray[idx][i] / 128.0;
           var y = v * HEIGHT/2;
@@ -130,7 +138,7 @@ function visualize() {
           } else {
             canvasCtx.lineTo(x, y);
           }
-          x += sliceWidth;
+          x += sliceWidth * step;
         }
         // canvasCtx.lineTo(canvas.width, canvas.height/2);
         canvasCtx.stroke();
