@@ -14,9 +14,7 @@ var voiceSelect = document.getElementById("voice");
 var source;
 var stream;
 
-// grab the mute button to use below
-
-var mute = document.querySelector('.mute');
+console.log(audioCtx.sampleRate)
 
 //set up the different audio nodes we will use for the app
 
@@ -24,55 +22,6 @@ var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
 analyser.smoothingTimeConstant = 0.0;
-
-var distortion = audioCtx.createWaveShaper();
-var gainNode = audioCtx.createGain();
-var biquadFilter = audioCtx.createBiquadFilter();
-var convolver = audioCtx.createConvolver();
-
-// distortion curve for the waveshaper, thanks to Kevin Ennis
-// http://stackoverflow.com/questions/22312841/waveshaper-node-in-webaudio-how-to-emulate-distortion
-
-function makeDistortionCurve(amount) {
-  var k = typeof amount === 'number' ? amount : 50,
-    n_samples = 44100,
-    curve = new Float32Array(n_samples),
-    deg = Math.PI / 180,
-    i = 0,
-    x;
-  for ( ; i < n_samples; ++i ) {
-    x = i * 2 / n_samples - 1;
-    curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
-  }
-  return curve;
-};
-
-// grab audio track via XHR for convolver node
-
-var soundSource, concertHallBuffer;
-
-ajaxRequest = new XMLHttpRequest();
-
-ajaxRequest.open('GET', 'http://mdn.github.io/voice-change-o-matic/audio/concert-crowd.ogg', true);
-
-ajaxRequest.responseType = 'arraybuffer';
-
-
-ajaxRequest.onload = function() {
-  var audioData = ajaxRequest.response;
-
-  audioCtx.decodeAudioData(audioData, function(buffer) {
-      concertHallBuffer = buffer;
-      soundSource = audioCtx.createBufferSource();
-      soundSource.buffer = concertHallBuffer;
-    }, function(e){"Error with decoding audio data" + e.err});
-
-  //soundSource.connect(audioCtx.destination);
-  //soundSource.loop = true;
-  //soundSource.start();
-}
-
-ajaxRequest.send();
 
 // set up canvas context for visualizer
 
@@ -99,17 +48,12 @@ if (navigator.getUserMedia) {
 
       // Success callback
       function(stream) {
-         source = audioCtx.createMediaStreamSource(stream);
+        source = audioCtx.createMediaStreamSource(stream);
+        console.log('success callback - ' + source.context.sampleRate);
+        
          source.connect(analyser);
-         analyser.connect(distortion);
-         distortion.connect(biquadFilter);
-         biquadFilter.connect(convolver);
-         convolver.connect(gainNode);
-         gainNode.connect(audioCtx.destination);
 
-      	 draw();
-         voiceChange();
-
+      	 visual();
       },
 
       // Error callback
@@ -201,35 +145,20 @@ function visualize() {
       canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
       drawSub(arrayIdx);
       
-      
-
-      
-      // for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
-      //   if (dataIdx == NARRAY) {
-      //     canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
-      //   } else {
-      //     canvasCtx.strokeStyle = 'rgb(0, 250, 0)';
-      //   }
-      //   var idx = (arrayIdx + dataIdx) % NARRAY
-      //   drawSub(idx);
-      // }
-
-      
       arrayIdx = (arrayIdx+1) % NARRAY
     }
 
     draw();
 
   } else if(visualSetting == "frequencybars") {
-    analyser.fftSize = 512;
-    var NARRAY = 10
+    analyser.fftSize = 2048;
+    var NARRAY = 5
     var bufferLength = analyser.frequencyBinCount;
     console.log(bufferLength);
     var dataArrayArray = new Array(NARRAY)
     for(var i = 0; i < NARRAY; i++) {
       dataArrayArray[i] = new Uint8Array(bufferLength)
     }
-    // var dataArray = new Uint8Array(bufferLength); 
 
     canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -270,7 +199,7 @@ function visualize() {
 
   } else if(visualSetting == "off") {
     canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
-    canvasCtx.fillStyle = "red";
+    canvasCtx.fillStyle = "green";
     canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
   }
 
@@ -307,20 +236,20 @@ visualSelect.onchange = function() {
   visualize();
 }
 
-voiceSelect.onchange = function() {
-  voiceChange();
-}
+// voiceSelect.onchange = function() {
+//   voiceChange();
+// }
 
-mute.onclick = voiceMute;
+// mute.onclick = voiceMute;
 
-function voiceMute() {
-  if(mute.id == "") {
-    gainNode.gain.value = 0;
-    mute.id = "activated";
-    mute.innerHTML = "Unmute";
-  } else {
-    gainNode.gain.value = 1;
-    mute.id = "";    
-    mute.innerHTML = "Mute";
-  }
-}
+// function voiceMute() {
+//   if(mute.id == "") {
+//     gainNode.gain.value = 0;
+//     mute.id = "activated";
+//     mute.innerHTML = "Unmute";
+//   } else {
+//     gainNode.gain.value = 1;
+//     mute.id = "";    
+//     mute.innerHTML = "Mute";
+//   }
+// }
