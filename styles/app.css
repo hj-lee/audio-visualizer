@@ -10,8 +10,8 @@ html {
 body {
 	width: 100%;
 	height: inherit;
-	background-color: #000;
-	background-image: url(../images/pattern.png);
+	background-color: #999;
+	/* background-image: url(../images/pattern.png); */
 }
 
 h1, h2, label {
