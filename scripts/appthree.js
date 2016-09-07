@@ -25,15 +25,15 @@ var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
 analyser.smoothingTimeConstant = 0.0;
-  
 
 // select elements
 
 var fftSizeSelect = document.getElementById("fftsize");
 var nlinesSelect = document.getElementById("nlines");
+var styleSelect = document.getElementById("style");
 
 var sampleRateElm = document.getElementById("sampleRate");
-
+var frameLengthElm = document.getElementById("frameLength");
 
 //
 
@@ -72,23 +72,8 @@ if (navigator.getUserMedia) {
 
 // three.js
 
-var div = document.getElementById('three');
-
 WIDTH = 800;
 HEIGHT = 400;
-var renderer = new THREE.WebGLRenderer();
-renderer.setSize(WIDTH, HEIGHT);
-div.appendChild(renderer.domElement);
-var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, 2000);
-camera.position.z = 1000;
-camera.position.y = HEIGHT/2+1000;
-camera.position.x = WIDTH/2;
-camera.rotation.x = - Math.PI/4;
-var material = new THREE.LineBasicMaterial({
-  color: 0xffffff
-});
-
-var scene;
 
 // max frequency of interest
 MAX_FREQ = 15000;
@@ -96,44 +81,148 @@ MAX_FREQ = 15000;
 // distance between each frame
 ZSTEP = -2;
 
+var renderer = new THREE.WebGLRenderer();
+renderer.setSize(WIDTH, HEIGHT);
+document.getElementById('three').appendChild(renderer.domElement);
+
+var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, WIDTH * 2.5);
+camera.position.z = WIDTH * 1.25;
+camera.position.y = HEIGHT/2 + WIDTH * 1.25;
+camera.position.x = WIDTH/2;
+camera.rotation.x = - Math.PI/4;
+
+var scene;
+
+
+var drawStyleFunctions = {}
+drawStyleFunctions["line"] = {}
+drawStyleFunctions["frontmesh"] = {}
+drawStyleFunctions["upmesh"] = {}
+drawStyleFunctions["off"] = {}
+
+drawStyleFunctions["line"].makeMaterial = function(color) {
+  return new THREE.LineBasicMaterial({
+    color: color
+  });  
+};
+drawStyleFunctions["frontmesh"].makeMaterial = function(color) {
+  return new THREE.MeshBasicMaterial({
+    color: color
+  });  
+};
+drawStyleFunctions["upmesh"].makeMaterial =
+  drawStyleFunctions["frontmesh"].makeMaterial;
+
+drawStyleFunctions["off"].makeMaterial = function(color) { }
+
+
+
+drawStyleFunctions["line"].makeObject =
+  function(prevVectorArry, vectorArray, material)
+{
+  var geometry = new THREE.Geometry();
+  geometry.vertices = vectorArray;
+  return new THREE.Line(geometry, material);
+}
+drawStyleFunctions["frontmesh"].makeObject =
+  function(prevVectorArry, vectorArray, material)
+{
+  var geometry = new THREE.Geometry();
+  for(var i = 0; i < vectorArray.length; i++) {
+    var vertex = vectorArray[i];
+    geometry.vertices.push(
+      new THREE.Vector3(vertex.x, 0, 0)
+    );
+    vertex.y += 2;
+    geometry.vertices.push(vertex);
+    if (i>0) {
+      geometry.faces.push(
+	new THREE.Face3(i*2, i*2-1, i*2-2)
+      );
+      geometry.faces.push(
+	new THREE.Face3(i*2+1, i*2-1, i*2)
+      );
+    }
+  }
+  return new THREE.Mesh(geometry, material);
+}
+
+drawStyleFunctions["upmesh"].makeObject =
+  function(prevVectorArry, vectorArray, material)
+{
+  if (prevVectorArry) {
+    var geometry = new THREE.Geometry();
+    for(var i = 0; i < vectorArray.length; i++) {
+      prevVectorArry[i].z = ZSTEP;
+      geometry.vertices.push(vectorArray[i]);
+      geometry.vertices.push(prevVectorArry[i]);
+      if (i>0) {
+      geometry.faces.push(
+	new THREE.Face3(i*2, i*2-1, i*2-2)
+      );
+      geometry.faces.push(
+	new THREE.Face3(i*2+1, i*2-1, i*2)
+      );
+      }
+    }
+    return new THREE.Mesh(geometry, material);
+  }
+}
+
+drawStyleFunctions["off"].makeObject = function(a,b,c) { }
+
+
 function visualize() {
-  analyser.fftSize = Number(fftSizeSelect.value);
+  analyser.fftSize = Number(fftSizeSelect.value);  
   var NARRAY = Number(nlinesSelect.value);
   var bufferLength = analyser.frequencyBinCount;
   console.log(bufferLength);
+  var drawStyle = styleSelect.value;
+  
+  var frameLength = analyser.fftSize / audioCtx.sampleRate;
+  frameLengthElm.innerText = frameLength;
+
   
   var dataArray = new Uint8Array(bufferLength);  
 
   var objectArray = new Array(NARRAY);
   
-  var arrayIdx = 0;
   scene = new THREE.Scene();
+
+  var material;
+  material = drawStyleFunctions[drawStyle].makeMaterial(0xffffff);
 
   var oldMaterials = new Array(NARRAY);
   for(var i = 0; i < NARRAY; i++) {
     var addColor = Math.floor(256 * (i/NARRAY));
-    if (i % 2 == 0) addColor = Math.floor(256 * 256 * 256 * ((NARRAY-i)/NARRAY));
+    if (i % 2 == 0)
+      addColor = Math.floor(256 * 256 * 256 * ((NARRAY-i)/NARRAY));
     var c = 256 * 125 + addColor;
-    oldMaterials[i] = new THREE.LineBasicMaterial({
-      color: c
-    });
+    oldMaterials[i] = drawStyleFunctions[drawStyle].makeMaterial(c);
   }
+
+  // draw() sets
+  var arrayIdx = 0;
+  var prevVectorArry;
 
   function draw() {
     drawVisual = requestAnimationFrame(draw);
 
     {
+      // remove old object
       var oldObj = objectArray[(arrayIdx + 1)%NARRAY];
       if (oldObj) {
 	scene.remove(oldObj);
 	oldObj.geometry.dispose();
 	delete(oldObj);
       }
+      // move objects backward
       scene.traverse(function(obj) {
 	if(scene.id != obj.id) {
 	  obj.translateZ(ZSTEP);
 	}
       });
+      // change last object material
       var prevObj = objectArray[(arrayIdx + NARRAY -1) % NARRAY];
       if (prevObj) {
 	prevObj.material = oldMaterials[arrayIdx];
@@ -142,25 +231,24 @@ function visualize() {
     
     analyser.getByteFrequencyData(dataArray);
 
-    var barHeight;
     var maxDrawFreq = MAX_FREQ / (source.context.sampleRate / analyser.fftSize);
     maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
-    var barWidth = (WIDTH / maxDrawFreq) * 1;
+    var unitWidth = (WIDTH / maxDrawFreq);
+    
+    var vectorArray = new Array();
 
     {
       var x = 0;
 
-      var geometry = new THREE.Geometry();
-
+      // var geometry = new THREE.Geometry();
+      
       // lx closeness check
       var preLx = -100;
       var maxLy = 0;
       var cnt = 0;
       
       for(var i = 0; i < maxDrawFreq; i++) {
-        barHeight = dataArray[i];
-	
-        var y = barHeight;
+        var y = dataArray[i];
 
 	var lx = x;
 	var ly = y;
@@ -171,7 +259,7 @@ function visualize() {
 
 	// skip close log(1+x) positions, pick max y
 	if (lx - preLx >= 1.0) {
-	  geometry.vertices.push(
+	  vectorArray.push(
 	    new THREE.Vector3(lx, Math.max(maxLy,ly), 0)
 	  );
 	  
@@ -183,16 +271,22 @@ function visualize() {
 	  maxLy = Math.max(maxLy, ly);
 	}
 	
-        x += barWidth;
+        x += unitWidth;
       }
-      var line = new THREE.Line(geometry, material);
-      objectArray[arrayIdx] = line;
-      scene.add(line);
+      var obj = drawStyleFunctions[drawStyle].makeObject(
+	prevVectorArry,
+	vectorArray,
+	material
+      );
+      if (obj) {
+	objectArray[arrayIdx] = obj;
+	scene.add(obj);
+      }
     }
-
     // console.log('render');
     renderer.render(scene, camera);
-    
+
+    prevVectorArry = vectorArray;
     arrayIdx = (arrayIdx + 1) % NARRAY
   };
 
@@ -226,5 +320,7 @@ function onchangeFunction() {
 fftSizeSelect.onchange = onchangeFunction;
   
 nlinesSelect.onchange = onchangeFunction;
+
+styleSelect.onchange = onchangeFunction;
 
 // })();

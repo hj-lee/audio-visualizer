@@ -25,14 +25,22 @@
     <div style="width: 800px; height: 400px;" id="three">
     </div>
     <h3>
-      Sample Rate: <span id ="sampleRate"></span>
+      Sample Rate: <span id ="sampleRate"></span>,
+      Audio Frame Length: <span id="frameLength"></span> sec
     </h3>
     <form class="controls">
       <div>
+        <label for="style">Style</label>
+        <select id="style" name="style">
+          <option value="line">Line</option>
+          <option value="frontmesh">Front Mesh</option>
+          <option value="upmesh">Up Mesh</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
         <label for="fftsize">FFT Size</label>
         <select id="fftsize" name="fftsize">
-          <option value="128">128</option>
-          <option value="256">256</option>
           <option value="512">512</option>
           <option value="1024">1024</option>
           <option value="2048">2048</option>
@@ -45,10 +53,6 @@
       <div>
         <label for="nlines">Number of Lines</label>
         <select id="nlines" name="nlines">
-          <option value="1">1</option>
-          <option value="3">3</option>
-          <option value="5">5</option>
-          <option value="7">7</option>
           <option value="10">10</option>
           <option value="15">15</option>
           <option value="20">20</option>
