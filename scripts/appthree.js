@@ -85,11 +85,22 @@ var renderer = new THREE.WebGLRenderer();
 renderer.setSize(WIDTH, HEIGHT);
 document.getElementById('three').appendChild(renderer.domElement);
 
-var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, WIDTH * 2.5);
-camera.position.z = WIDTH * 1.25;
-camera.position.y = HEIGHT/2 + WIDTH * 1.25;
+var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, WIDTH * 3);
+
+DISTANCE_FACTOR = 2.1
+var camAngle = Math.PI/4;
+// camAngle = Math.PI/2;
+// camAngle = 0;
+// camAngle = Math.PI/6;
+// camAngle = Math.PI/20;
+
+camera.position.z = -150 + WIDTH * DISTANCE_FACTOR * Math.cos(camAngle);
+camera.position.y = HEIGHT/2 + (WIDTH-150) * DISTANCE_FACTOR * Math.sin(camAngle);
 camera.position.x = WIDTH/2;
-camera.rotation.x = - Math.PI/4;
+
+camera.rotation.x = - camAngle;
+
+
 
 var scene;
 
