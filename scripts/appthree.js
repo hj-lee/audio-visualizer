@@ -10,6 +10,7 @@ navigator.getUserMedia = (navigator.getUserMedia ||
 // window. is needed otherwise Safari explodes
 
 var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
 // var voiceSelect = document.getElementById("voice");
 
 
@@ -83,10 +84,10 @@ var renderer = new THREE.WebGLRenderer();
 renderer.setSize(800, 400);
 div.appendChild(renderer.domElement);
 var camera = new THREE.PerspectiveCamera(15, 800 / 400, 1, 2000);
-camera.position.z = 700;
-camera.position.y = HEIGHT/2+1200;
+camera.position.z = 1000;
+camera.position.y = HEIGHT/2+1000;
 camera.position.x = WIDTH/2;
-camera.rotation.x = -1.0;
+camera.rotation.x = - Math.PI/4;
 var material = new THREE.LineBasicMaterial({
   color: 0xffffff
 });
@@ -122,7 +123,9 @@ function visualize() {
   // });
   var oldMaterials = new Array(NARRAY);
   for(var i = 0; i < NARRAY; i++) {
-    var c = 256 * 125 + Math.floor(256 * (i/NARRAY))
+    var addColor = Math.floor(256 * (i/NARRAY));
+    if (i % 2 == 0) addColor = Math.floor(256 * 256 * 256 * (i/NARRAY));
+    var c = 256 * 125 + addColor;
     oldMaterials[i] = new THREE.LineBasicMaterial({
       color: c
     });
