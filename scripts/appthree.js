@@ -97,6 +97,7 @@ var material = new THREE.LineBasicMaterial({
 //   color: 0x00ff00
 // });
 
+var scene = new THREE.Scene();
 
 
 function visualize() {
@@ -116,7 +117,6 @@ function visualize() {
   var lines = new Array(NARRAY);
 
 
-  var scene = new THREE.Scene();
 
   // scene.traverse(function(obj) {
   //   if(scene.id != obj.id) scene.remove(obj);
@@ -161,7 +161,11 @@ function visualize() {
       // console.log(color)
 
       var geometry = new THREE.Geometry();
-
+      
+      var preLx = -100;
+      var maxLy = 0;
+      var cnt = 0;
+      
       for(var i = 0; i < maxDrawFreq; i++) {
         barHeight = dataArray[i];
 	
@@ -172,11 +176,21 @@ function visualize() {
 
 	lx = Math.log(1+x) * WIDTH / 6.8
         // ly = Math.log(1+barHeight) * 35;
+
+	// skip close log(1+x) positions, pick max y
+	if (lx - preLx >= 1.0) {
+	  geometry.vertices.push(
+	    new THREE.Vector3(lx, Math.max(maxLy,ly), 0)
+	  );
+	  
+	  preLx = lx;
+	  cnt = 0;
+	  maxLy = 0;
+	} else {
+	  cnt++;
+	  maxLy = Math.max(maxLy, ly);
+	}
 	
-	geometry.vertices.push(
-	  new THREE.Vector3(lx, ly, 0)
-	);
-        
         x += barWidth;
       }
       var line = new THREE.Line(geometry, material);
