@@ -94,7 +94,7 @@ function visualize() {
 
     canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
 
-    var background = 'rgb(0, 200, 200)'
+    var background = 'rgb(200, 200, 200)'
     
     canvasCtx.fillStyle = background;
     canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -187,8 +187,9 @@ function visualize() {
       canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
       var barHeight;
-      var maxDrawFreq = Math.max(bufferLength, 512);
-      var barWidth = (WIDTH / maxDrawFreq) * 2.5;
+      var maxDrawFreq = 15000 / (source.context.sampleRate / analyser.fftSize);
+      maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
+      var barWidth = (WIDTH / maxDrawFreq) * 1;
 
       for(var dataIdx = 1; dataIdx <= NARRAY ; dataIdx++) {
         var idx = (arrayIdx + dataIdx) % NARRAY
@@ -208,20 +209,23 @@ function visualize() {
 
         for(var i = 0; i < maxDrawFreq; i++) {
           barHeight = dataArrayArray[idx][i];
-
+	  // barHeight = Math.max(barHeight-30,0);
+	  
           var y = HEIGHT-barHeight;
-          var lx = Math.log(1+x) * WIDTH / 10
-          var ly = HEIGHT - Math.log(1+barHeight) * 35;
 
-          // lx = x;
-          ly = y;
+	  var lx = x;
+	  var ly = y;
+
+	  lx = Math.log(1+x) * WIDTH / 6.8
+          // ly = HEIGHT - Math.log(1+barHeight) * 35;
+
           if(i === 0) {
             canvasCtx.moveTo(lx, ly);
           } else {
             canvasCtx.lineTo(lx, ly)
           }
           
-          x += barWidth + 1;
+          x += barWidth;
         }
         canvasCtx.stroke();
       }
