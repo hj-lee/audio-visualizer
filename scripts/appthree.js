@@ -19,7 +19,7 @@ var stream;
 
 console.log(audioCtx.sampleRate)
 
-//set up the different audio nodes we will use for the app
+// set up the analyser node
 
 var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
@@ -27,14 +27,19 @@ analyser.maxDecibels = -10;
 analyser.smoothingTimeConstant = 0.0;
   
 
+// select elements
+
 var fftSizeSelect = document.getElementById("fftsize");
 var nlinesSelect = document.getElementById("nlines");
 
 var sampleRateElm = document.getElementById("sampleRate");
 
+
+//
+
 var drawVisual;
 
-//main block for doing the audio recording
+// connect audio to analyser
 
 if (navigator.getUserMedia) {
    console.log('getUserMedia supported.');
@@ -66,6 +71,7 @@ if (navigator.getUserMedia) {
 }
 
 // three.js
+
 var div = document.getElementById('three');
 
 WIDTH = 800;
@@ -84,28 +90,29 @@ var material = new THREE.LineBasicMaterial({
 
 var scene;
 
+// max frequency of interest
+MAX_FREQ = 15000;
+
+// distance between each frame
+ZSTEP = -2;
+
 function visualize() {
-
-  // var visualSetting = visualSelect.value;
-  // console.log(visualSetting);
-
   analyser.fftSize = Number(fftSizeSelect.value);
   var NARRAY = Number(nlinesSelect.value);
-  // var NARRAY = 100;
   var bufferLength = analyser.frequencyBinCount;
   console.log(bufferLength);
-  var dataArray = new Uint8Array(bufferLength);
+  
+  var dataArray = new Uint8Array(bufferLength);  
+
+  var objectArray = new Array(NARRAY);
   
   var arrayIdx = 0;
-
-  var lines = new Array(NARRAY);
-
   scene = new THREE.Scene();
 
   var oldMaterials = new Array(NARRAY);
   for(var i = 0; i < NARRAY; i++) {
     var addColor = Math.floor(256 * (i/NARRAY));
-    if (i % 2 == 0) addColor = Math.floor(256 * 256 * 256 * (i/NARRAY));
+    if (i % 2 == 0) addColor = Math.floor(256 * 256 * 256 * ((NARRAY-i)/NARRAY));
     var c = 256 * 125 + addColor;
     oldMaterials[i] = new THREE.LineBasicMaterial({
       color: c
@@ -115,38 +122,37 @@ function visualize() {
   function draw() {
     drawVisual = requestAnimationFrame(draw);
 
-    var oldLine = lines[(arrayIdx + 1)%NARRAY];
-    if (oldLine) {
-      scene.remove(oldLine);
-      oldLine.geometry.dispose();
-      delete(oldLine);
-    }
-    scene.traverse(function(obj) {
-      if(scene.id != obj.id) {
-	obj.translateZ(-2);
+    {
+      var oldObj = objectArray[(arrayIdx + 1)%NARRAY];
+      if (oldObj) {
+	scene.remove(oldObj);
+	oldObj.geometry.dispose();
+	delete(oldObj);
       }
-    });
-    var prevLine = lines[(arrayIdx + NARRAY -1)%NARRAY];
-    if (prevLine) {
-      prevLine.material = oldMaterials[arrayIdx];
+      scene.traverse(function(obj) {
+	if(scene.id != obj.id) {
+	  obj.translateZ(ZSTEP);
+	}
+      });
+      var prevObj = objectArray[(arrayIdx + NARRAY -1) % NARRAY];
+      if (prevObj) {
+	prevObj.material = oldMaterials[arrayIdx];
+      }
     }
     
     analyser.getByteFrequencyData(dataArray);
 
     var barHeight;
-    var maxDrawFreq = 15000 / (source.context.sampleRate / analyser.fftSize);
+    var maxDrawFreq = MAX_FREQ / (source.context.sampleRate / analyser.fftSize);
     maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
     var barWidth = (WIDTH / maxDrawFreq) * 1;
 
     {
-
       var x = 0;
-      var color = 250;
-      var lineWidth = 3;
-      // console.log(color)
 
       var geometry = new THREE.Geometry();
-      
+
+      // lx closeness check
       var preLx = -100;
       var maxLy = 0;
       var cnt = 0;
@@ -159,6 +165,7 @@ function visualize() {
 	var lx = x;
 	var ly = y;
 
+	// 6.8 =~ Math.log(WIDTH)
 	lx = Math.log(1+x) * WIDTH / 6.8
         // ly = Math.log(1+barHeight) * 35;
 
@@ -179,8 +186,7 @@ function visualize() {
         x += barWidth;
       }
       var line = new THREE.Line(geometry, material);
-      
-      lines[arrayIdx] = line;
+      objectArray[arrayIdx] = line;
       scene.add(line);
     }
 
