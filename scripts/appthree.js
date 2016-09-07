@@ -24,7 +24,7 @@ console.log(audioCtx.sampleRate)
 var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
-  analyser.smoothingTimeConstant = 0.0;
+analyser.smoothingTimeConstant = 0.0;
   
 
 var fftSizeSelect = document.getElementById("fftsize");
@@ -70,7 +70,6 @@ var div = document.getElementById('three');
 
 WIDTH = 800;
 HEIGHT = 400;
-
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize(WIDTH, HEIGHT);
 div.appendChild(renderer.domElement);
@@ -83,8 +82,7 @@ var material = new THREE.LineBasicMaterial({
   color: 0xffffff
 });
 
-var scene = new THREE.Scene();
-
+var scene;
 
 function visualize() {
 
@@ -102,9 +100,8 @@ function visualize() {
 
   var lines = new Array(NARRAY);
 
-  // scene.traverse(function(obj) {
-  //   if(scene.id != obj.id) scene.remove(obj);
-  // });
+  scene = new THREE.Scene();
+
   var oldMaterials = new Array(NARRAY);
   for(var i = 0; i < NARRAY; i++) {
     var addColor = Math.floor(256 * (i/NARRAY));
@@ -197,15 +194,31 @@ function visualize() {
 
 }
 
-// event listeners to change visualize and voice settings
+// event listeners to change settings
 
-// visualSelect.onchange = 
-
-fftSizeSelect.onchange = function() {
+function onchangeFunction() {
   window.cancelAnimationFrame(drawVisual);
+
+  if (scene) {
+    var objs = new Array();
+    scene.traverse(function(obj) {
+      if(obj.id != scene.id) objs.push(obj);
+    });
+    var obj;
+    for(obj in objs) {
+      scene.remove(obj);
+      if (obj && obj.geometry) obj.geometry.dispose();
+      delete(obj);
+    }
+    scene = undefined;
+    objs = undefined;
+  }
+  
   visualize();
 }
 
-nlinesSelect.onchange = fftSizeSelect.onchange;
+fftSizeSelect.onchange = onchangeFunction;
+  
+nlinesSelect.onchange = onchangeFunction;
 
 // })();
