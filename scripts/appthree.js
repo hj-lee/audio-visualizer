@@ -113,9 +113,6 @@ drawStyleFunctions["frontmesh"].makeMaterial = function(color) {
 drawStyleFunctions["upmesh"].makeMaterial =
   drawStyleFunctions["frontmesh"].makeMaterial;
 
-drawStyleFunctions["off"].makeMaterial = function(color) { }
-
-
 
 drawStyleFunctions["line"].makeObject =
   function(prevVectorArry, vectorArray, material)
@@ -169,7 +166,6 @@ drawStyleFunctions["upmesh"].makeObject =
   }
 }
 
-drawStyleFunctions["off"].makeObject = function(a,b,c) { }
 
 
 function visualize() {
@@ -178,6 +174,9 @@ function visualize() {
   var bufferLength = analyser.frequencyBinCount;
   console.log(bufferLength);
   var drawStyle = styleSelect.value;
+
+  // stop rendering
+  if (drawStyle == "off") return;
   
   var frameLength = analyser.fftSize / audioCtx.sampleRate;
   frameLengthElm.innerText = frameLength;
