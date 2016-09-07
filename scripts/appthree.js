@@ -1,6 +1,8 @@
 // fork getUserMedia for multiple browser versions, for those
 // that need prefixes
 
+// (function () {
+  
 navigator.getUserMedia = (navigator.getUserMedia ||
                           navigator.webkitGetUserMedia ||
                           navigator.mozGetUserMedia ||
@@ -10,8 +12,6 @@ navigator.getUserMedia = (navigator.getUserMedia ||
 // window. is needed otherwise Safari explodes
 
 var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-// var voiceSelect = document.getElementById("voice");
 
 
 var source;
@@ -24,18 +24,9 @@ console.log(audioCtx.sampleRate)
 var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
-analyser.smoothingTimeConstant = 0.0;
+  analyser.smoothingTimeConstant = 0.0;
+  
 
-// set up canvas context for visualizer
-
-// var canvas = document.querySelector('.visualizer');
-// var canvasCtx = canvas.getContext("2d");
-
-var intendedWidth = document.querySelector('.wrapper').clientWidth;
-
-// canvas.setAttribute('width',intendedWidth);
-
-// var visualSelect = document.getElementById("visual");
 var fftSizeSelect = document.getElementById("fftsize");
 var nlinesSelect = document.getElementById("nlines");
 
@@ -81,9 +72,9 @@ WIDTH = 800;
 HEIGHT = 400;
 
 var renderer = new THREE.WebGLRenderer();
-renderer.setSize(800, 400);
+renderer.setSize(WIDTH, HEIGHT);
 div.appendChild(renderer.domElement);
-var camera = new THREE.PerspectiveCamera(15, 800 / 400, 1, 2000);
+var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, 2000);
 camera.position.z = 1000;
 camera.position.y = HEIGHT/2+1000;
 camera.position.x = WIDTH/2;
@@ -91,11 +82,6 @@ camera.rotation.x = - Math.PI/4;
 var material = new THREE.LineBasicMaterial({
   color: 0xffffff
 });
-
-
-// var materialOld = new THREE.LineBasicMaterial({
-//   color: 0x00ff00
-// });
 
 var scene = new THREE.Scene();
 
@@ -116,8 +102,6 @@ function visualize() {
 
   var lines = new Array(NARRAY);
 
-
-
   // scene.traverse(function(obj) {
   //   if(scene.id != obj.id) scene.remove(obj);
   // });
@@ -135,7 +119,11 @@ function visualize() {
     drawVisual = requestAnimationFrame(draw);
 
     var oldLine = lines[(arrayIdx + 1)%NARRAY];
-    if (oldLine) scene.remove(oldLine);
+    if (oldLine) {
+      scene.remove(oldLine);
+      oldLine.geometry.dispose();
+      delete(oldLine);
+    }
     scene.traverse(function(obj) {
       if(scene.id != obj.id) {
 	obj.translateZ(-2);
@@ -219,3 +207,5 @@ fftSizeSelect.onchange = function() {
 }
 
 nlinesSelect.onchange = fftSizeSelect.onchange;
+
+// })();
