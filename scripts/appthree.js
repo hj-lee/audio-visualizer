@@ -25,7 +25,7 @@ var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
 
-analyser.smoothingTimeConstant = 0.5;
+analyser.smoothingTimeConstant = 0.0;
 
 // select elements
 
