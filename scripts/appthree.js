@@ -96,33 +96,50 @@ var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, WIDTH * 3);
 DISTANCE_FACTOR = 2.1
 
 
-var camAngle = Math.PI/4;
+var angleX = Math.PI/4;
+var angleY = 0;
 
-function setCameraAngle(camAngle) {
-  camera.position.z = -150 + WIDTH * DISTANCE_FACTOR * Math.cos(camAngle);
-  camera.position.x = WIDTH/2;
-  camera.position.y = HEIGHT/2 +
-    (WIDTH-150) * DISTANCE_FACTOR * Math.sin(camAngle);
-  // camera.position.x = WIDTH/2;
+function setCameraAngle(angleX, angleY) {
+  camera.position.x = WIDTH/2 + WIDTH * DISTANCE_FACTOR * Math.sin(angleY);
+  camera.position.y = HEIGHT/3 + WIDTH * DISTANCE_FACTOR * Math.sin(angleX) * Math.cos(angleY);
+  camera.position.z = ZSTEP*75 + WIDTH * DISTANCE_FACTOR * Math.cos(angleX) * Math.cos(angleY);
 
-  camera.rotation.x = - camAngle;
+
+  camera.rotation.x = - angleX;
+  camera.rotation.y = angleY;
 }  
 
-setCameraAngle(camAngle);
+setCameraAngle(angleX, angleY);
 
 ANGLE_STEP = Math.PI / 60;
+
+MIN_ANGLE_X = 0;
+MAX_ANGLE_X = Math.PI/2;
+MIN_ANGLE_Y = -Math.PI/2;
+MAX_ANGLE_Y = Math.PI/2;
+
 
 document.addEventListener('keydown', function(event) {
   var code = event.code;
   if (code == 'KeyW') {
-    camAngle += ANGLE_STEP;
-    if (camAngle > Math.PI/2) camAngle = Math.PI/2;
-    setCameraAngle(camAngle);
+    angleX += ANGLE_STEP;
+    if (angleX > MAX_ANGLE_X) angleX = MAX_ANGLE_X;
+    setCameraAngle(angleX, angleY);
   }
   else if (code == 'KeyS') {
-    camAngle -= ANGLE_STEP;
-    if (camAngle < 0) camAngle = 0;
-    setCameraAngle(camAngle);
+    angleX -= ANGLE_STEP;
+    if (angleX < MIN_ANGLE_X) angleX = MIN_ANGLE_X;
+    setCameraAngle(angleX, angleY);
+  }
+  else if (code == 'KeyA') {
+    angleY -= ANGLE_STEP;
+    if (angleY < MIN_ANGLE_Y) angleY = MIN_ANGLE_Y;
+    setCameraAngle(angleX, angleY);
+  }
+  else if (code == 'KeyD') {
+    angleY += ANGLE_STEP;
+    if (angleY > MAX_ANGLE_Y) angleY = MAX_ANGLE_Y;
+    setCameraAngle(angleX, angleY);
   }
 });
 
