@@ -242,11 +242,12 @@ drawStyleFunctions["upmesh"].makeObject =
 // bar
 
 
-barMaterials = new Array(256);
+barMaterials = new Array(256/4);
 for(var i = 0; i < barMaterials.length; i++) {
-  var base = 127 * 256;
-  if (i%2 == 0) base = 127;
-  var c = i * 256 * 256 + base;
+  var base = 80 * 256;
+  if (i%2 == 0) base = 80;
+  var c = i * 4 * 256 * 256 + base;
+  // var c = (120 + i * 2) *(1+256+256*256);
   barMaterials[i] = new THREE.MeshBasicMaterial({
     color: c
   });
@@ -258,37 +259,49 @@ drawStyleFunctions["bar"].makeMaterial = meshMaterial;
 drawStyleFunctions["bar"].makeObject =
   function(prevVectorArry, vectorArray, material)
 {
-  var geometry = new THREE.Geometry();
+  var geometryArray = new Array(256/4);
+  for(var i = 0; i < geometryArray.length; i++) {
+    geometryArray[i] = new THREE.Geometry();
+  }
+  var group = new THREE.Group();
   var max = 0;
   for(var i = 0; i < vectorArray.length-1; i++) {
     var vertex = vectorArray[i];
     var nextVertex = vectorArray[i+1];
 
-    max = Math.max(max, vertex.y);
-    
+    var idx = Math.floor(vertex.y/4);
+    idx = Math.min(idx, geometryArray.length-1);
+
     vertex.y += 2;
     
-    geometry.vertices.push(
+    geometryArray[idx].vertices.push(
       new THREE.Vector3(vertex.x, 0, 0)
     );
-    geometry.vertices.push(vertex);
-    geometry.vertices.push(
+    geometryArray[idx].vertices.push(vertex);
+    geometryArray[idx].vertices.push(
       new THREE.Vector3(nextVertex.x, 0, 0)
     );
-    geometry.vertices.push(
+    geometryArray[idx].vertices.push(
       new THREE.Vector3(nextVertex.x, vertex.y, 0)
     );
     
-    var i4 = i*4;
-    geometry.faces.push(
+    var i4 = geometryArray[idx].vertices.length - 4;
+    geometryArray[idx].faces.push(
       new THREE.Face3(i4+2, i4+1, i4+0)
     );
-    geometry.faces.push(
+    geometryArray[idx].faces.push(
       new THREE.Face3(i4+3, i4+1, i4+2)
     );
   }
-  if (max > 255) max = 255;
-  return new THREE.Mesh(geometry, barMaterials[Math.floor(max)]);
+  // if (max > 255) max = 255;
+  // return new THREE.Mesh(geometry, barMaterials[Math.floor(max/4)]);
+  for(var i = 0; i < geometryArray.length; i++) {
+    if (geometryArray[i].vertices.length > 0) {
+      group.add(new THREE.Mesh(geometryArray[i], barMaterials[i]));
+    }
+    geometryArray[i].dispose();
+  }
+  return group;
 }
 drawStyleFunctions["bar"].skipMaterialChange = true;
 
