@@ -13,12 +13,6 @@ navigator.getUserMedia = (navigator.getUserMedia ||
 
 var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-
-var source;
-var stream;
-
-console.log(audioCtx.sampleRate)
-
 // set up the analyser node
 
 var analyser = audioCtx.createAnalyser();
@@ -26,6 +20,10 @@ analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
 
 analyser.smoothingTimeConstant = 0.0;
+
+
+
+
 
 // select elements
 
@@ -46,7 +44,6 @@ var drawVisual;
 // connect audio to analyser
 
 if (navigator.getUserMedia) {
-    console.log('getUserMedia supported.');
     navigator.getUserMedia (
 	// constraints - only audio needed for this app
 	{
@@ -55,13 +52,9 @@ if (navigator.getUserMedia) {
 
 	// Success callback
 	function(stream) {
-            source = audioCtx.createMediaStreamSource(stream);
-            console.log('success callback - ' + source.context.sampleRate);
-
-	    sampleRateElm.innerText = source.context.sampleRate;
-	    
+            var source = audioCtx.createMediaStreamSource(stream);
+	    sampleRateElm.innerText = source.context.sampleRate;	    
             source.connect(analyser);
-
       	    visualize();
 	},
 
@@ -77,14 +70,14 @@ if (navigator.getUserMedia) {
 /////////////////////////////////////
 // three.js
 
-WIDTH = 800;
-HEIGHT = 400;
+var WIDTH = 800;
+var HEIGHT = 400;
 
 // max frequency of interest
-MAX_FREQ = 15000;
+var MAX_FREQ = 15000;
 
 // distance between each frame
-ZSTEP = -2;
+var ZSTEP = -2;
 
 
 // renderer
@@ -389,7 +382,7 @@ function visualize() {
 	
 	analyser.getByteFrequencyData(dataArray);
 
-	var maxDrawFreq = MAX_FREQ / (source.context.sampleRate / analyser.fftSize);
+	var maxDrawFreq = MAX_FREQ / (analyser.context.sampleRate / analyser.fftSize);
 	maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
 	var unitWidth = (WIDTH / maxDrawFreq);
 	
