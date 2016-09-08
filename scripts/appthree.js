@@ -10,6 +10,27 @@ navigator.getUserMedia = (navigator.getUserMedia ||
 
 
 ////////////////////////////////////////////////
+// Renderer
+
+function Renderer(id, desc) {
+    this.id = id;
+    this.desc = desc;
+}
+
+Renderer.prototype.addOption = function(selectElm, selected) {
+    var opt = document.createElement("option");
+    opt.value = this.id;
+    opt.innerHTML = this.desc;
+    if (selected) opt.selected = true;
+    selectElm.appendChild(opt);
+}
+
+function FrequencyRenderer(id, desc) {
+    this.base = Renderer;
+    this.base(id, desc);
+}
+FrequencyRenderer.prototype = new Renderer;
+
 
 
 ////////////////////////////////////////////////
@@ -17,6 +38,7 @@ navigator.getUserMedia = (navigator.getUserMedia ||
 
 var app = {};
 
+// 
 app.connected =  function(stream) {
     // set up forked web audio context, for multiple browsers
     // window. is needed otherwise Safari explodes
@@ -56,6 +78,8 @@ app.prepare = function() {
     this.frameLengthElm = frameLengthElm;
 
     //
+    sampleRateElm.innerText = this.audioCtx.sampleRate;
+
 
     // var drawVisual;
 
@@ -165,7 +189,7 @@ app.prepare = function() {
 
     // line
 
-    drawStyleFunctions["line"] = {}
+    drawStyleFunctions["line"] = new FrequencyRenderer("line", "Line");
 
     drawStyleFunctions["line"].makeMaterial = lineMaterial;
 
@@ -179,7 +203,7 @@ app.prepare = function() {
 
     // frontmesh
 
-    drawStyleFunctions["frontmesh"] = {}
+    drawStyleFunctions["frontmesh"] = new FrequencyRenderer("frontmesh", "Front Mesh");
 
     drawStyleFunctions["frontmesh"].makeMaterial = meshMaterial;
 
@@ -208,7 +232,7 @@ app.prepare = function() {
 
     // upmesh
 
-    drawStyleFunctions["upmesh"] = {}
+    drawStyleFunctions["upmesh"] = new FrequencyRenderer("upmesh", "Up Mesh");
 
     drawStyleFunctions["upmesh"].makeMaterial = meshMaterial;
 
@@ -236,8 +260,7 @@ app.prepare = function() {
 
     // bar
 
-
-    barMaterials = new Array(256/4);
+    var barMaterials = new Array(256/4);
     for(var i = 0; i < barMaterials.length; i++) {
 	var base = 80 * 256;
 	if (i%2 == 0) base = 80;
@@ -248,7 +271,7 @@ app.prepare = function() {
 	});
     }
 
-    drawStyleFunctions["bar"] = {}
+    drawStyleFunctions["bar"] = new FrequencyRenderer("bar", "Bar");
     drawStyleFunctions["bar"].makeMaterial = meshMaterial;
 
     drawStyleFunctions["bar"].makeObject =
@@ -300,6 +323,15 @@ app.prepare = function() {
     }
     drawStyleFunctions["bar"].skipMaterialChange = true;
 
+    ////////
+
+    drawStyleFunctions["off"] = new Renderer("off", "Off");
+    
+    drawStyleFunctions["line"].addOption(styleSelect, true);
+    drawStyleFunctions["frontmesh"].addOption(styleSelect);
+    drawStyleFunctions["upmesh"].addOption(styleSelect);
+    drawStyleFunctions["bar"].addOption(styleSelect);
+    drawStyleFunctions["off"].addOption(styleSelect);
 
     ///////////////////////////////////////
     // rendering
