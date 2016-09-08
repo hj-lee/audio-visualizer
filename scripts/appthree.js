@@ -24,13 +24,17 @@ console.log(audioCtx.sampleRate)
 var analyser = audioCtx.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
-analyser.smoothingTimeConstant = 0.0;
+
+analyser.smoothingTimeConstant = 0.5;
 
 // select elements
 
 var fftSizeSelect = document.getElementById("fftsize");
 var nlinesSelect = document.getElementById("nlines");
 var styleSelect = document.getElementById("style");
+var smoothingSelect = document.getElementById("smoothing");
+
+// span elements
 
 var sampleRateElm = document.getElementById("sampleRate");
 var frameLengthElm = document.getElementById("frameLength");
@@ -377,5 +381,10 @@ fftSizeSelect.onchange = onchangeFunction;
 nlinesSelect.onchange = onchangeFunction;
 
 styleSelect.onchange = onchangeFunction;
+
+smoothingSelect.onchange = function(e) {
+  var smoothing = Number(smoothingSelect.value);
+  analyser.smoothingTimeConstant = smoothing;
+}
 
 // })();
