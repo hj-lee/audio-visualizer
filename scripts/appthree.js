@@ -151,7 +151,7 @@ document.addEventListener('keydown', function(event) {
 // scene draw
 
 var scene;
-
+var oldMaterials;
 
 var drawStyleFunctions = {}
 
@@ -309,6 +309,17 @@ drawStyleFunctions["bar"].skipMaterialChange = true;
 ///////////////////////////////////////
 // rendering
 
+function deepDispose(obj) {
+  if (obj.geometry) obj.geometry.dispose();
+  // group?
+  if (obj.traverse) {
+    obj.traverse(function(subObj) {
+      if(obj.id != subObj.id) deepDispose(subObj);
+    });
+  }
+  if (obj.dispose) obj.dispose();
+}
+
 function visualize() {
   analyser.fftSize = Number(fftSizeSelect.value);  
   var NARRAY = Number(nlinesSelect.value);
@@ -332,7 +343,13 @@ function visualize() {
   var material;
   material = drawStyleFunctions[drawStyle].makeMaterial(0xffffff);
 
-  var oldMaterials = new Array(NARRAY);
+  // dispose old oldMaterials
+  if (oldMaterials) {
+    oldMaterials.forEach(function(m) { if(m.dispose) m.dispose(); });
+  }
+
+  // rebuild oldMaterials
+  oldMaterials = new Array(NARRAY);
   for(var i = 0; i < NARRAY; i++) {
     var addColor = Math.floor(256 * (i/NARRAY));
     if (i % 2 == 0)
@@ -353,15 +370,7 @@ function visualize() {
       var oldObj = objectArray[(arrayIdx + 1)%NARRAY];
       if (oldObj) {
 	scene.remove(oldObj);
-	if (oldObj && oldObj.geometry) oldObj.geometry.dispose();
-	// group
-	if (oldObj.traverse) {
-	  oldObj.traverse(function(obj) {
-	    if(obj.geometry) obj.geometry.dispose();
-	    delete(obj);
-	  });
-	}
-	delete(oldObj);
+	deepDispose(oldObj);
       }
       // move objects backward
       scene.traverse(function(obj) {
@@ -456,15 +465,7 @@ function onchangeFunction() {
     var obj;
     for(obj in objs) {
       scene.remove(obj);
-      if (obj && obj.geometry) obj.geometry.dispose();
-      // group
-      if (obj.traverse) {
-	obj.traverse(function(innerObj) {
-	  if(innerObj.geometry) innerObj.geometry.dispose();
-	  delete(innerObj);
-	});
-      }
-      delete(obj);
+      deepDispose(obj);
     }
     scene = undefined;
     objs = undefined;
