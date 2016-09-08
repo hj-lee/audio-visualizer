@@ -8,217 +8,188 @@ navigator.getUserMedia = (navigator.getUserMedia ||
                           navigator.mozGetUserMedia ||
                           navigator.msGetUserMedia);
 
-// set up forked web audio context, for multiple browsers
-// window. is needed otherwise Safari explodes
 
-var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+////////////////////////////////////////////////
+// The 'app' object
 
-// set up the analyser node
+var app = {};
 
-var analyser = audioCtx.createAnalyser();
-analyser.minDecibels = -90;
-analyser.maxDecibels = -10;
+app.connected =  function(stream) {
+    // set up forked web audio context, for multiple browsers
+    // window. is needed otherwise Safari explodes
+    
+    var audioCtx = new (window.AudioContext ||
+			window.webkitAudioContext)();
+    this.audioCtx = audioCtx;
+    
+    var source = audioCtx.createMediaStreamSource(stream);
 
-analyser.smoothingTimeConstant = 0.0;
+    // analyser
+    var analyser = audioCtx.createAnalyser();
+    this.analyser = analyser;
+    
+    analyser.minDecibels = -90;
+    analyser.maxDecibels = -10;
+    analyser.smoothingTimeConstant = 0.0;
+    source.connect(analyser);
+}
+
+app.prepare = function() {
+    var self = this;
+    // select elements
+
+    var fftSizeSelect = document.getElementById("fftsize");
+    this.fftSizeSelect = fftSizeSelect;
+    var nlinesSelect = document.getElementById("nlines");
+    this.nlinesSelect = nlinesSelect;
+    var styleSelect = document.getElementById("style");
+    this.styleSelect = styleSelect;
+    var smoothingSelect = document.getElementById("smoothing");
+
+    // span elements
+
+    var sampleRateElm = document.getElementById("sampleRate");
+    var frameLengthElm = document.getElementById("frameLength");
+    this.frameLengthElm = frameLengthElm;
+
+    //
+
+    // var drawVisual;
+
+    /////////////////////////////////////
+    // three.js
+
+    var WIDTH = 800;
+    this.width = WIDTH;
+    
+    var HEIGHT = 400;
+    this.height = HEIGHT;
+
+    // max frequency of interest
+    this.MAX_FREQ = 15000;
+
+    // distance between each frame
+    var ZSTEP = -2;
+    this.ZSTEP = ZSTEP;
+
+    // renderer
+
+    var renderer = new THREE.WebGLRenderer();
+    this.renderer = renderer;
+    
+    renderer.setSize(WIDTH, HEIGHT);
+    document.getElementById('three').appendChild(renderer.domElement);
+
+    // camera
+
+    var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, WIDTH * 3);
+    this.camera = camera;
+
+    DISTANCE_FACTOR = 2.1
 
 
+    var angleX = Math.PI/6;
+    var angleY = 0;
+
+    function setCameraAngle(angleX, angleY) {
+	camera.position.x = WIDTH/2 + WIDTH * DISTANCE_FACTOR * Math.sin(angleY);
+	camera.position.y = HEIGHT/3 + WIDTH * DISTANCE_FACTOR * Math.sin(angleX) * Math.cos(angleY);
+	camera.position.z = ZSTEP*75 + WIDTH * DISTANCE_FACTOR * Math.cos(angleX) * Math.cos(angleY);
 
 
+	camera.rotation.x = - angleX;
+	camera.rotation.y = angleY;
+    }  
 
-// select elements
+    setCameraAngle(angleX, angleY);
 
-var fftSizeSelect = document.getElementById("fftsize");
-var nlinesSelect = document.getElementById("nlines");
-var styleSelect = document.getElementById("style");
-var smoothingSelect = document.getElementById("smoothing");
+    var ANGLE_STEP = Math.PI / 60;
 
-// span elements
+    var MIN_ANGLE_X = 0;
+    var MAX_ANGLE_X = Math.PI/2;
+    var MIN_ANGLE_Y = -Math.PI/2;
+    var MAX_ANGLE_Y = Math.PI/2;
 
-var sampleRateElm = document.getElementById("sampleRate");
-var frameLengthElm = document.getElementById("frameLength");
 
-//
-
-var drawVisual;
-
-// connect audio to analyser
-
-if (navigator.getUserMedia) {
-    navigator.getUserMedia (
-	// constraints - only audio needed for this app
-	{
-            audio: true
-	},
-
-	// Success callback
-	function(stream) {
-            var source = audioCtx.createMediaStreamSource(stream);
-	    sampleRateElm.innerText = source.context.sampleRate;	    
-            source.connect(analyser);
-      	    visualize();
-	},
-
-	// Error callback
-	function(err) {
-            console.log('The following gUM error occured: ' + err);
+    document.addEventListener('keydown', function(event) {
+	var code = event.code;
+	if (code == 'KeyW') {
+	    angleX += ANGLE_STEP;
+	    if (angleX > MAX_ANGLE_X) angleX = MAX_ANGLE_X;
+	    setCameraAngle(angleX, angleY);
 	}
-    );
-} else {
-    console.log('getUserMedia not supported on your browser!');
-}
-
-/////////////////////////////////////
-// three.js
-
-var WIDTH = 800;
-var HEIGHT = 400;
-
-// max frequency of interest
-var MAX_FREQ = 15000;
-
-// distance between each frame
-var ZSTEP = -2;
-
-
-// renderer
-
-var renderer = new THREE.WebGLRenderer();
-renderer.setSize(WIDTH, HEIGHT);
-document.getElementById('three').appendChild(renderer.domElement);
-
-// camera
-
-var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, WIDTH * 3);
-
-DISTANCE_FACTOR = 2.1
-
-
-var angleX = Math.PI/6;
-var angleY = 0;
-
-function setCameraAngle(angleX, angleY) {
-    camera.position.x = WIDTH/2 + WIDTH * DISTANCE_FACTOR * Math.sin(angleY);
-    camera.position.y = HEIGHT/3 + WIDTH * DISTANCE_FACTOR * Math.sin(angleX) * Math.cos(angleY);
-    camera.position.z = ZSTEP*75 + WIDTH * DISTANCE_FACTOR * Math.cos(angleX) * Math.cos(angleY);
-
-
-    camera.rotation.x = - angleX;
-    camera.rotation.y = angleY;
-}  
-
-setCameraAngle(angleX, angleY);
-
-ANGLE_STEP = Math.PI / 60;
-
-MIN_ANGLE_X = 0;
-MAX_ANGLE_X = Math.PI/2;
-MIN_ANGLE_Y = -Math.PI/2;
-MAX_ANGLE_Y = Math.PI/2;
-
-
-document.addEventListener('keydown', function(event) {
-    var code = event.code;
-    if (code == 'KeyW') {
-	angleX += ANGLE_STEP;
-	if (angleX > MAX_ANGLE_X) angleX = MAX_ANGLE_X;
-	setCameraAngle(angleX, angleY);
-    }
-    else if (code == 'KeyS') {
-	angleX -= ANGLE_STEP;
-	if (angleX < MIN_ANGLE_X) angleX = MIN_ANGLE_X;
-	setCameraAngle(angleX, angleY);
-    }
-    else if (code == 'KeyA') {
-	angleY -= ANGLE_STEP;
-	if (angleY < MIN_ANGLE_Y) angleY = MIN_ANGLE_Y;
-	setCameraAngle(angleX, angleY);
-    }
-    else if (code == 'KeyD') {
-	angleY += ANGLE_STEP;
-	if (angleY > MAX_ANGLE_Y) angleY = MAX_ANGLE_Y;
-	setCameraAngle(angleX, angleY);
-    }
-});
-
-
-// scene draw
-
-var scene;
-var oldMaterials;
-
-var drawStyleFunctions = {}
-
-// common functions
-function lineMaterial(color) {
-    return new THREE.LineBasicMaterial({
-	color: color
-    });  
-}
-
-function meshMaterial(color) {
-    return new THREE.MeshBasicMaterial({
-	color: color
-    });  
-}
-
-// line
-
-drawStyleFunctions["line"] = {}
-
-drawStyleFunctions["line"].makeMaterial = lineMaterial;
-
-drawStyleFunctions["line"].makeObject =
-    function(prevVectorArry, vectorArray, material)
-{
-    var geometry = new THREE.Geometry();
-    geometry.vertices = vectorArray;
-    return new THREE.Line(geometry, material);
-}
-
-// frontmesh
-
-drawStyleFunctions["frontmesh"] = {}
-
-drawStyleFunctions["frontmesh"].makeMaterial = meshMaterial;
-
-drawStyleFunctions["frontmesh"].makeObject =
-    function(prevVectorArry, vectorArray, material)
-{
-    var geometry = new THREE.Geometry();
-    for(var i = 0; i < vectorArray.length; i++) {
-	var vertex = vectorArray[i];
-	geometry.vertices.push(
-	    new THREE.Vector3(vertex.x, 0, 0)
-	);
-	vertex.y += 2;
-	geometry.vertices.push(vertex);
-	if (i>0) {
-	    geometry.faces.push(
-		new THREE.Face3(i*2, i*2-1, i*2-2)
-	    );
-	    geometry.faces.push(
-		new THREE.Face3(i*2+1, i*2-1, i*2)
-	    );
+	else if (code == 'KeyS') {
+	    angleX -= ANGLE_STEP;
+	    if (angleX < MIN_ANGLE_X) angleX = MIN_ANGLE_X;
+	    setCameraAngle(angleX, angleY);
 	}
+	else if (code == 'KeyA') {
+	    angleY -= ANGLE_STEP;
+	    if (angleY < MIN_ANGLE_Y) angleY = MIN_ANGLE_Y;
+	    setCameraAngle(angleX, angleY);
+	}
+	else if (code == 'KeyD') {
+	    angleY += ANGLE_STEP;
+	    if (angleY > MAX_ANGLE_Y) angleY = MAX_ANGLE_Y;
+	    setCameraAngle(angleX, angleY);
+	}
+    });
+
+
+    // scene draw
+
+    var scene;
+    var oldMaterials;
+    this.oldMaterials = oldMaterials;
+
+    var drawStyleFunctions = {}
+
+    this.drawStyleFunctions = drawStyleFunctions;
+    
+    // common functions
+    function lineMaterial(color) {
+	return new THREE.LineBasicMaterial({
+	    color: color
+	});  
     }
-    return new THREE.Mesh(geometry, material);
-}
 
-// upmesh
+    function meshMaterial(color) {
+	return new THREE.MeshBasicMaterial({
+	    color: color
+	});  
+    }
 
-drawStyleFunctions["upmesh"] = {}
+    // line
 
-drawStyleFunctions["upmesh"].makeMaterial = meshMaterial;
+    drawStyleFunctions["line"] = {}
 
-drawStyleFunctions["upmesh"].makeObject =
-    function(prevVectorArry, vectorArray, material)
-{
-    if (prevVectorArry) {
+    drawStyleFunctions["line"].makeMaterial = lineMaterial;
+
+    drawStyleFunctions["line"].makeObject =
+	function(prevVectorArry, vectorArray, material)
+    {
+	var geometry = new THREE.Geometry();
+	geometry.vertices = vectorArray;
+	return new THREE.Line(geometry, material);
+    }
+
+    // frontmesh
+
+    drawStyleFunctions["frontmesh"] = {}
+
+    drawStyleFunctions["frontmesh"].makeMaterial = meshMaterial;
+
+    drawStyleFunctions["frontmesh"].makeObject =
+	function(prevVectorArry, vectorArray, material)
+    {
 	var geometry = new THREE.Geometry();
 	for(var i = 0; i < vectorArray.length; i++) {
-	    prevVectorArry[i].z = ZSTEP;
-	    geometry.vertices.push(vectorArray[i]);
-	    geometry.vertices.push(prevVectorArry[i]);
+	    var vertex = vectorArray[i];
+	    geometry.vertices.push(
+		new THREE.Vector3(vertex.x, 0, 0)
+	    );
+	    vertex.y += 2;
+	    geometry.vertices.push(vertex);
 	    if (i>0) {
 		geometry.faces.push(
 		    new THREE.Face3(i*2, i*2-1, i*2-2)
@@ -230,77 +201,140 @@ drawStyleFunctions["upmesh"].makeObject =
 	}
 	return new THREE.Mesh(geometry, material);
     }
-}
 
-// bar
+    // upmesh
 
+    drawStyleFunctions["upmesh"] = {}
 
-barMaterials = new Array(256/4);
-for(var i = 0; i < barMaterials.length; i++) {
-    var base = 80 * 256;
-    if (i%2 == 0) base = 80;
-    var c = i * 4 * 256 * 256 + base;
-    // var c = (120 + i * 2) *(1+256+256*256);
-    barMaterials[i] = new THREE.MeshBasicMaterial({
-	color: c
-    });
-}
+    drawStyleFunctions["upmesh"].makeMaterial = meshMaterial;
 
-drawStyleFunctions["bar"] = {}
-drawStyleFunctions["bar"].makeMaterial = meshMaterial;
-
-drawStyleFunctions["bar"].makeObject =
-    function(prevVectorArry, vectorArray, material)
-{
-    var geometryArray = new Array(256/4);
-    for(var i = 0; i < geometryArray.length; i++) {
-	geometryArray[i] = new THREE.Geometry();
-    }
-    var group = new THREE.Group();
-    var max = 0;
-    for(var i = 0; i < vectorArray.length-1; i++) {
-	var vertex = vectorArray[i];
-	var nextVertex = vectorArray[i+1];
-
-	var idx = Math.floor(vertex.y/4);
-	idx = Math.min(idx, geometryArray.length-1);
-
-	vertex.y += 2;
-	
-	geometryArray[idx].vertices.push(
-	    new THREE.Vector3(vertex.x, 0, 0)
-	);
-	geometryArray[idx].vertices.push(vertex);
-	geometryArray[idx].vertices.push(
-	    new THREE.Vector3(nextVertex.x, 0, 0)
-	);
-	geometryArray[idx].vertices.push(
-	    new THREE.Vector3(nextVertex.x, vertex.y, 0)
-	);
-	
-	var i4 = geometryArray[idx].vertices.length - 4;
-	geometryArray[idx].faces.push(
-	    new THREE.Face3(i4+2, i4+1, i4+0)
-	);
-	geometryArray[idx].faces.push(
-	    new THREE.Face3(i4+3, i4+1, i4+2)
-	);
-    }
-    // if (max > 255) max = 255;
-    // return new THREE.Mesh(geometry, barMaterials[Math.floor(max/4)]);
-    for(var i = 0; i < geometryArray.length; i++) {
-	if (geometryArray[i].vertices.length > 0) {
-	    group.add(new THREE.Mesh(geometryArray[i], barMaterials[i]));
+    drawStyleFunctions["upmesh"].makeObject =
+	function(prevVectorArry, vectorArray, material)
+    {
+	if (prevVectorArry) {
+	    var geometry = new THREE.Geometry();
+	    for(var i = 0; i < vectorArray.length; i++) {
+		prevVectorArry[i].z = ZSTEP;
+		geometry.vertices.push(vectorArray[i]);
+		geometry.vertices.push(prevVectorArry[i]);
+		if (i>0) {
+		    geometry.faces.push(
+			new THREE.Face3(i*2, i*2-1, i*2-2)
+		    );
+		    geometry.faces.push(
+			new THREE.Face3(i*2+1, i*2-1, i*2)
+		    );
+		}
+	    }
+	    return new THREE.Mesh(geometry, material);
 	}
-	geometryArray[i].dispose();
     }
-    return group;
+
+    // bar
+
+
+    barMaterials = new Array(256/4);
+    for(var i = 0; i < barMaterials.length; i++) {
+	var base = 80 * 256;
+	if (i%2 == 0) base = 80;
+	var c = i * 4 * 256 * 256 + base;
+	// var c = (120 + i * 2) *(1+256+256*256);
+	barMaterials[i] = new THREE.MeshBasicMaterial({
+	    color: c
+	});
+    }
+
+    drawStyleFunctions["bar"] = {}
+    drawStyleFunctions["bar"].makeMaterial = meshMaterial;
+
+    drawStyleFunctions["bar"].makeObject =
+	function(prevVectorArry, vectorArray, material)
+    {
+	var geometryArray = new Array(256/4);
+	for(var i = 0; i < geometryArray.length; i++) {
+	    geometryArray[i] = new THREE.Geometry();
+	}
+	var group = new THREE.Group();
+	var max = 0;
+	for(var i = 0; i < vectorArray.length-1; i++) {
+	    var vertex = vectorArray[i];
+	    var nextVertex = vectorArray[i+1];
+
+	    var idx = Math.floor(vertex.y/4);
+	    idx = Math.min(idx, geometryArray.length-1);
+
+	    vertex.y += 2;
+	    
+	    geometryArray[idx].vertices.push(
+		new THREE.Vector3(vertex.x, 0, 0)
+	    );
+	    geometryArray[idx].vertices.push(vertex);
+	    geometryArray[idx].vertices.push(
+		new THREE.Vector3(nextVertex.x, 0, 0)
+	    );
+	    geometryArray[idx].vertices.push(
+		new THREE.Vector3(nextVertex.x, vertex.y, 0)
+	    );
+	    
+	    var i4 = geometryArray[idx].vertices.length - 4;
+	    geometryArray[idx].faces.push(
+		new THREE.Face3(i4+2, i4+1, i4+0)
+	    );
+	    geometryArray[idx].faces.push(
+		new THREE.Face3(i4+3, i4+1, i4+2)
+	    );
+	}
+	// if (max > 255) max = 255;
+	// return new THREE.Mesh(geometry, barMaterials[Math.floor(max/4)]);
+	for(var i = 0; i < geometryArray.length; i++) {
+	    if (geometryArray[i].vertices.length > 0) {
+		group.add(new THREE.Mesh(geometryArray[i], barMaterials[i]));
+	    }
+	    geometryArray[i].dispose();
+	}
+	return group;
+    }
+    drawStyleFunctions["bar"].skipMaterialChange = true;
+
+
+    ///////////////////////////////////////
+    // rendering
+
+
+    // event listeners to change settings
+
+    function onchangeFunction() {
+	window.cancelAnimationFrame(self.drawVisual);
+
+	if (scene) {
+	    var objs = new Array();
+	    scene.traverse(function(obj) {
+		if(obj.id != scene.id) objs.push(obj);
+	    });
+	    var obj;
+	    for(obj in objs) {
+		scene.remove(obj);
+		deepDispose(obj);
+	    }
+	    scene = undefined;
+	    objs = undefined;
+	}
+	
+	self.visualize(app);
+    }
+
+    fftSizeSelect.onchange = onchangeFunction;
+
+    nlinesSelect.onchange = onchangeFunction;
+
+    styleSelect.onchange = onchangeFunction;
+
+    smoothingSelect.onchange = function(e) {
+	var smoothing = Number(smoothingSelect.value);
+	app.analyser.smoothingTimeConstant = smoothing;
+    }
+    
 }
-drawStyleFunctions["bar"].skipMaterialChange = true;
-
-
-///////////////////////////////////////
-// rendering
 
 function deepDispose(obj) {
     if (obj.geometry) obj.geometry.dispose();
@@ -313,18 +347,21 @@ function deepDispose(obj) {
     if (obj.dispose) obj.dispose();
 }
 
-function visualize() {
-    analyser.fftSize = Number(fftSizeSelect.value);  
-    var NARRAY = Number(nlinesSelect.value);
-    var bufferLength = analyser.frequencyBinCount;
+
+
+app.visualize = function() {
+    var self = this;
+    self.analyser.fftSize = Number(self.fftSizeSelect.value);  
+    var NARRAY = Number(self.nlinesSelect.value);
+    var bufferLength = self.analyser.frequencyBinCount;
     console.log(bufferLength);
-    var drawStyle = styleSelect.value;
+    var drawStyle = this.styleSelect.value;
 
     // stop rendering
     if (drawStyle == "off") return;
     
-    var frameLength = analyser.fftSize / audioCtx.sampleRate;
-    frameLengthElm.innerText = frameLength;
+    var frameLength = self.analyser.fftSize / self.audioCtx.sampleRate;
+    self.frameLengthElm.innerText = frameLength;
 
     
     var dataArray = new Uint8Array(bufferLength);  
@@ -334,21 +371,21 @@ function visualize() {
     scene = new THREE.Scene();
 
     var material;
-    material = drawStyleFunctions[drawStyle].makeMaterial(0xffffff);
+    material = self.drawStyleFunctions[drawStyle].makeMaterial(0xffffff);
 
     // dispose old oldMaterials
-    if (oldMaterials) {
-	oldMaterials.forEach(function(m) { if(m.dispose) m.dispose(); });
+    if (self.oldMaterials) {
+	self.oldMaterials.forEach(function(m) { if(m.dispose) m.dispose(); });
     }
 
     // rebuild oldMaterials
-    oldMaterials = new Array(NARRAY);
+    self.oldMaterials = new Array(NARRAY);
     for(var i = 0; i < NARRAY; i++) {
 	var addColor = Math.floor(256 * (i/NARRAY));
 	if (i % 2 == 0)
 	    addColor = Math.floor(256 * 256 * 256 * ((NARRAY-i)/NARRAY));
 	var c = 256 * 125 + addColor;
-	oldMaterials[i] = drawStyleFunctions[drawStyle].makeMaterial(c);
+	self.oldMaterials[i] = self.drawStyleFunctions[drawStyle].makeMaterial(c);
     }
 
     // draw() sets
@@ -356,7 +393,7 @@ function visualize() {
     var prevVectorArry;
 
     function draw() {
-	drawVisual = requestAnimationFrame(draw);
+	self.drawVisual = requestAnimationFrame(draw);
 
 	{
 	    // remove old object
@@ -368,23 +405,23 @@ function visualize() {
 	    // move objects backward
 	    scene.traverse(function(obj) {
 		if(scene.id != obj.id) {
-		    obj.translateZ(ZSTEP);
+		    obj.translateZ(self.ZSTEP);
 		}
 	    });
 	    // change last object material
-	    if (!drawStyleFunctions[drawStyle].skipMaterialChange) {
+	    if (!self.drawStyleFunctions[drawStyle].skipMaterialChange) {
       		var prevObj = objectArray[(arrayIdx + NARRAY -1) % NARRAY];
       		if (prevObj) {
-      		    prevObj.material = oldMaterials[arrayIdx];
+      		    prevObj.material = self.oldMaterials[arrayIdx];
       		}
 	    }
 	}
 	
-	analyser.getByteFrequencyData(dataArray);
+	self.analyser.getByteFrequencyData(dataArray);
 
-	var maxDrawFreq = MAX_FREQ / (analyser.context.sampleRate / analyser.fftSize);
+	var maxDrawFreq = self.MAX_FREQ / (self.analyser.context.sampleRate / self.analyser.fftSize);
 	maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
-	var unitWidth = (WIDTH / maxDrawFreq);
+	var unitWidth = (self.width / maxDrawFreq);
 	
 	var vectorArray = new Array();
 
@@ -405,7 +442,7 @@ function visualize() {
 		var ly = y;
 
 		// 6.8 =~ Math.log(WIDTH)
-		lx = Math.log(1+x) * WIDTH / 6.8
+		lx = Math.log(1+x) * self.width / 6.8
 		// ly = Math.log(1+barHeight) * 35;
 
 		// skip close log(1+x) positions, pick max y
@@ -424,7 +461,7 @@ function visualize() {
 		
 		x += unitWidth;
 	    }
-	    var obj = drawStyleFunctions[drawStyle].makeObject(
+	    var obj = self.drawStyleFunctions[drawStyle].makeObject(
 		prevVectorArry,
 		vectorArray,
 		material
@@ -435,7 +472,7 @@ function visualize() {
 	    }
 	}
 	// console.log('render');
-	renderer.render(scene, camera);
+	self.renderer.render(scene, self.camera);
 
 	prevVectorArry = vectorArray;
 	arrayIdx = (arrayIdx + 1) % NARRAY
@@ -445,37 +482,33 @@ function visualize() {
 
 }
 
-// event listeners to change settings
+//////////////////////////////////////////////////////
 
-function onchangeFunction() {
-    window.cancelAnimationFrame(drawVisual);
 
-    if (scene) {
-	var objs = new Array();
-	scene.traverse(function(obj) {
-	    if(obj.id != scene.id) objs.push(obj);
-	});
-	var obj;
-	for(obj in objs) {
-	    scene.remove(obj);
-	    deepDispose(obj);
+
+if (navigator.getUserMedia) {
+    navigator.getUserMedia (
+	// constraints - only audio needed for this app
+	{
+            audio: true
+	},
+
+	// Success callback
+	function (stream) {
+	    app.connected(stream);
+	    app.prepare();
+	    app.visualize();
 	}
-	scene = undefined;
-	objs = undefined;
-    }
-    
-    visualize();
+	,
+
+	// Error callback
+	function(err) {
+            console.log('The following gUM error occured: ' + err);
+	}
+    );
+} else {
+    console.log('getUserMedia not supported on your browser!');
 }
 
-fftSizeSelect.onchange = onchangeFunction;
-
-nlinesSelect.onchange = onchangeFunction;
-
-styleSelect.onchange = onchangeFunction;
-
-smoothingSelect.onchange = function(e) {
-    var smoothing = Number(smoothingSelect.value);
-    analyser.smoothingTimeConstant = smoothing;
-}
 
 // })();
