@@ -10,6 +10,9 @@ navigator.getUserMedia = (navigator.getUserMedia ||
 
 
 ////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////
 // The 'app' object
 
 var app = {};
@@ -138,7 +141,8 @@ app.prepare = function() {
 
     // scene draw
 
-    var scene;
+    // var scene;
+    
     var oldMaterials;
     this.oldMaterials = oldMaterials;
 
@@ -305,18 +309,17 @@ app.prepare = function() {
 
     function onchangeFunction() {
 	window.cancelAnimationFrame(self.drawVisual);
-
-	if (scene) {
+	if (self.scene) {
 	    var objs = new Array();
-	    scene.traverse(function(obj) {
-		if(obj.id != scene.id) objs.push(obj);
+	    self.scene.traverse(function(obj) {
+		if(obj.id != self.scene.id) objs.push(obj);
 	    });
 	    var obj;
 	    for(obj in objs) {
-		scene.remove(obj);
+		self.scene.remove(obj);
 		deepDispose(obj);
 	    }
-	    scene = undefined;
+	    self.scene = undefined;
 	    objs = undefined;
 	}
 	
@@ -368,7 +371,7 @@ app.visualize = function() {
 
     var objectArray = new Array(NARRAY);
     
-    scene = new THREE.Scene();
+    self.scene = new THREE.Scene();
 
     var material;
     material = self.drawStyleFunctions[drawStyle].makeMaterial(0xffffff);
@@ -399,12 +402,12 @@ app.visualize = function() {
 	    // remove old object
 	    var oldObj = objectArray[(arrayIdx + 1)%NARRAY];
 	    if (oldObj) {
-		scene.remove(oldObj);
+		self.scene.remove(oldObj);
 		deepDispose(oldObj);
 	    }
 	    // move objects backward
-	    scene.traverse(function(obj) {
-		if(scene.id != obj.id) {
+	    self.scene.traverse(function(obj) {
+		if(self.scene.id != obj.id) {
 		    obj.translateZ(self.ZSTEP);
 		}
 	    });
@@ -468,11 +471,11 @@ app.visualize = function() {
 	    );
 	    if (obj) {
 		objectArray[arrayIdx] = obj;
-		scene.add(obj);
+		self.scene.add(obj);
 	    }
 	}
 	// console.log('render');
-	self.renderer.render(scene, self.camera);
+	self.renderer.render(self.scene, self.camera);
 
 	prevVectorArry = vectorArray;
 	arrayIdx = (arrayIdx + 1) % NARRAY
