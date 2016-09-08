@@ -154,24 +154,25 @@ var scene;
 
 
 var drawStyleFunctions = {}
-drawStyleFunctions["line"] = {}
-drawStyleFunctions["frontmesh"] = {}
-drawStyleFunctions["upmesh"] = {}
-drawStyleFunctions["off"] = {}
 
-drawStyleFunctions["line"].makeMaterial = function(color) {
+// common functions
+function lineMaterial(color) {
   return new THREE.LineBasicMaterial({
     color: color
   });  
-};
-drawStyleFunctions["frontmesh"].makeMaterial = function(color) {
+}
+
+function meshMaterial(color) {
   return new THREE.MeshBasicMaterial({
     color: color
   });  
-};
-drawStyleFunctions["upmesh"].makeMaterial =
-  drawStyleFunctions["frontmesh"].makeMaterial;
+}
 
+// line
+
+drawStyleFunctions["line"] = {}
+
+drawStyleFunctions["line"].makeMaterial = lineMaterial;
 
 drawStyleFunctions["line"].makeObject =
   function(prevVectorArry, vectorArray, material)
@@ -180,6 +181,12 @@ drawStyleFunctions["line"].makeObject =
   geometry.vertices = vectorArray;
   return new THREE.Line(geometry, material);
 }
+
+// frontmesh
+
+drawStyleFunctions["frontmesh"] = {}
+
+drawStyleFunctions["frontmesh"].makeMaterial = meshMaterial;
 
 drawStyleFunctions["frontmesh"].makeObject =
   function(prevVectorArry, vectorArray, material)
@@ -204,6 +211,12 @@ drawStyleFunctions["frontmesh"].makeObject =
   return new THREE.Mesh(geometry, material);
 }
 
+// upmesh
+
+drawStyleFunctions["upmesh"] = {}
+
+drawStyleFunctions["upmesh"].makeMaterial = meshMaterial;
+
 drawStyleFunctions["upmesh"].makeObject =
   function(prevVectorArry, vectorArray, material)
 {
@@ -226,7 +239,62 @@ drawStyleFunctions["upmesh"].makeObject =
   }
 }
 
+// bar
 
+
+barMaterials = new Array(256);
+for(var i = 0; i < barMaterials.length; i++) {
+  var base = 127 * 256;
+  if (i%2 == 0) base = 127;
+  var c = i * 256 * 256 + base;
+  barMaterials[i] = new THREE.MeshBasicMaterial({
+    color: c
+  });
+}
+
+drawStyleFunctions["bar"] = {}
+drawStyleFunctions["bar"].makeMaterial = meshMaterial;
+
+drawStyleFunctions["bar"].makeObject =
+  function(prevVectorArry, vectorArray, material)
+{
+  var geometry = new THREE.Geometry();
+  var max = 0;
+  for(var i = 0; i < vectorArray.length-1; i++) {
+    var vertex = vectorArray[i];
+    var nextVertex = vectorArray[i+1];
+
+    max = Math.max(max, vertex.y);
+    
+    vertex.y += 2;
+    
+    geometry.vertices.push(
+      new THREE.Vector3(vertex.x, 0, 0)
+    );
+    geometry.vertices.push(vertex);
+    geometry.vertices.push(
+      new THREE.Vector3(nextVertex.x, 0, 0)
+    );
+    geometry.vertices.push(
+      new THREE.Vector3(nextVertex.x, vertex.y, 0)
+    );
+    
+    var i4 = i*4;
+    geometry.faces.push(
+      new THREE.Face3(i4+2, i4+1, i4+0)
+    );
+    geometry.faces.push(
+      new THREE.Face3(i4+3, i4+1, i4+2)
+    );
+  }
+  if (max > 255) max = 255;
+  return new THREE.Mesh(geometry, barMaterials[Math.floor(max)]);
+}
+drawStyleFunctions["bar"].skipMaterialChange = true;
+
+
+///////////////////////////////////////
+// rendering
 
 function visualize() {
   analyser.fftSize = Number(fftSizeSelect.value);  
@@ -272,7 +340,14 @@ function visualize() {
       var oldObj = objectArray[(arrayIdx + 1)%NARRAY];
       if (oldObj) {
 	scene.remove(oldObj);
-	oldObj.geometry.dispose();
+	if (oldObj && oldObj.geometry) oldObj.geometry.dispose();
+	// group
+	if (oldObj.traverse) {
+	  oldObj.traverse(function(obj) {
+	    if(obj.geometry) obj.geometry.dispose();
+	    delete(obj);
+	  });
+	}
 	delete(oldObj);
       }
       // move objects backward
@@ -282,9 +357,11 @@ function visualize() {
 	}
       });
       // change last object material
-      var prevObj = objectArray[(arrayIdx + NARRAY -1) % NARRAY];
-      if (prevObj) {
-	prevObj.material = oldMaterials[arrayIdx];
+      if (!drawStyleFunctions[drawStyle].skipMaterialChange) {
+      	var prevObj = objectArray[(arrayIdx + NARRAY -1) % NARRAY];
+      	if (prevObj) {
+      	  prevObj.material = oldMaterials[arrayIdx];
+      	}
       }
     }
     
@@ -367,6 +444,13 @@ function onchangeFunction() {
     for(obj in objs) {
       scene.remove(obj);
       if (obj && obj.geometry) obj.geometry.dispose();
+      // group
+      if (obj.traverse) {
+	obj.traverse(function(innerObj) {
+	  if(innerObj.geometry) innerObj.geometry.dispose();
+	  delete(innerObj);
+	});
+      }
       delete(obj);
     }
     scene = undefined;
