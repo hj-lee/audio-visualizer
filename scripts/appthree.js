@@ -70,6 +70,7 @@ if (navigator.getUserMedia) {
    console.log('getUserMedia not supported on your browser!');
 }
 
+/////////////////////////////////////
 // three.js
 
 WIDTH = 800;
@@ -81,26 +82,52 @@ MAX_FREQ = 15000;
 // distance between each frame
 ZSTEP = -2;
 
+
+// renderer
+
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize(WIDTH, HEIGHT);
 document.getElementById('three').appendChild(renderer.domElement);
 
+// camera
+
 var camera = new THREE.PerspectiveCamera(15, WIDTH / HEIGHT, 1, WIDTH * 3);
 
 DISTANCE_FACTOR = 2.1
+
+
 var camAngle = Math.PI/4;
-// camAngle = Math.PI/2;
-// camAngle = 0;
-// camAngle = Math.PI/6;
-// camAngle = Math.PI/20;
 
-camera.position.z = -150 + WIDTH * DISTANCE_FACTOR * Math.cos(camAngle);
-camera.position.y = HEIGHT/2 + (WIDTH-150) * DISTANCE_FACTOR * Math.sin(camAngle);
-camera.position.x = WIDTH/2;
+function setCameraAngle(camAngle) {
+  camera.position.z = -150 + WIDTH * DISTANCE_FACTOR * Math.cos(camAngle);
+  camera.position.x = WIDTH/2;
+  camera.position.y = HEIGHT/2 +
+    (WIDTH-150) * DISTANCE_FACTOR * Math.sin(camAngle);
+  // camera.position.x = WIDTH/2;
 
-camera.rotation.x = - camAngle;
+  camera.rotation.x = - camAngle;
+}  
+
+setCameraAngle(camAngle);
+
+ANGLE_STEP = Math.PI / 60;
+
+document.addEventListener('keydown', function(event) {
+  var code = event.code;
+  if (code == 'KeyW') {
+    camAngle += ANGLE_STEP;
+    if (camAngle > Math.PI/2) camAngle = Math.PI/2;
+    setCameraAngle(camAngle);
+  }
+  else if (code == 'KeyS') {
+    camAngle -= ANGLE_STEP;
+    if (camAngle < 0) camAngle = 0;
+    setCameraAngle(camAngle);
+  }
+});
 
 
+// scene draw
 
 var scene;
 
@@ -132,6 +159,7 @@ drawStyleFunctions["line"].makeObject =
   geometry.vertices = vectorArray;
   return new THREE.Line(geometry, material);
 }
+
 drawStyleFunctions["frontmesh"].makeObject =
   function(prevVectorArry, vectorArray, material)
 {
