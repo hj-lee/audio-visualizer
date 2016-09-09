@@ -54,11 +54,10 @@ function addOption(select, id, text, selected = false) {
 // free geometries of the obj
 // (manual geometry.dispose() call required.)
 function deepDispose(obj) {
-    if (obj.geometry) obj.geometry.dispose();
-    // group?
     if (obj.traverse) {
 	obj.traverse(function(subObj) {
-	    if(obj.id != subObj.id) deepDispose(subObj);
+	    if(subObj.geometry) subObj.geometry.dispose();
+	    if(obj.id != subObj.id && subObj.dispose) subObj.dispose();
 	});
     }
     if (obj.dispose) obj.dispose();
@@ -372,17 +371,8 @@ app.prepareRender = function() {
 	
 	if (self.scene) {
 	    console.log('clear scene');
-	    let objs = new Array();
-	    self.scene.traverse(function(obj) {
-		if(obj.id != self.scene.id) objs.push(obj);
-	    });
-	    let obj;
-	    for(obj in objs) {
-		self.scene.remove(obj);
-		deepDispose(obj);
-	    }
+	    deepDispose(self.scene);
 	    self.scene = undefined;
-	    objs = undefined;
 	}
 	
 	self.visualize();
@@ -536,7 +526,7 @@ LineRenderer.prototype.begin = function(app) {
 		deepDispose(oldObj);
 	    }
 	    // move objects backward
-	    scene.traverse(function(obj) {
+	    scene.children.forEach(function(obj) {
 		if(scene.id != obj.id) {
 		    obj.translateZ(app.zStep);
 		}
