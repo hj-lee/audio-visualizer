@@ -21,8 +21,6 @@ $(function() {
 	    // Success callback
 	    function (stream) {
 		app.connected(stream);
-		app.prepareRender();
-		app.visualize();
 	    }
 	    ,
 
@@ -37,6 +35,10 @@ $(function() {
 });
 
 
+///////////////////////////////////////////////////////
+// Functions
+
+// add option to select
 function addOption(select, id, text, selected = false) {
     var opt = $('<option/>', {
 	value: id,
@@ -49,24 +51,18 @@ function addOption(select, id, text, selected = false) {
 }
 
 
-////////////////////////////////////////////////
-// Renderer
-
-function Renderer(id, desc) {
-    this.id = id;
-    this.desc = desc;
+// free geometries of the obj
+// (manual geometry.dispose() call required.)
+function deepDispose(obj) {
+    if (obj.geometry) obj.geometry.dispose();
+    // group?
+    if (obj.traverse) {
+	obj.traverse(function(subObj) {
+	    if(obj.id != subObj.id) deepDispose(subObj);
+	});
+    }
+    if (obj.dispose) obj.dispose();
 }
-
-Renderer.prototype.addOption = function(select, selected) {
-    addOption(select, this.id, this.desc, selected);
-}
-
-function FrequencyRenderer(id, desc) {
-    this.base = Renderer;
-    this.base(id, desc);
-}
-
-FrequencyRenderer.prototype = new Renderer;
 
 
 
@@ -75,7 +71,14 @@ FrequencyRenderer.prototype = new Renderer;
 
 var app = {};
 
+
 app.prepare = function() {
+    this.prepareAnalyser();
+    this.prepareMisc();
+    this.prepareRender();
+}
+
+app.prepareAnalyser = function() {
     // set up forked web audio context, for multiple browsers
     // window. is needed otherwise Safari explodes
     let audioCtx = new (window.AudioContext ||
@@ -90,13 +93,15 @@ app.prepare = function() {
     analyser.minDecibels = -90;
     analyser.maxDecibels = -10;
     analyser.smoothingTimeConstant = 0.0;
+}
 
+app.prepareMisc = function() {
     // variables
     // max frequency of interest
     this.maxShowingFrequency = 15000;
     
     // set sample rate
-    let sampleRate = audioCtx.sampleRate
+    let sampleRate = this.audioCtx.sampleRate
     $("#sampleRate").text(sampleRate);
     
     // add fftsize options
@@ -122,15 +127,23 @@ app.connected =  function(stream) {
     let audioCtx = this.audioCtx;
     let source = audioCtx.createMediaStreamSource(stream);
     source.connect(this.analyser);
+    this.visualize();
 }
 
+app.registerRenderer = function(renderer, selected = false) {
+    this.styleRenderers[renderer.id] = renderer;
+    addOption($("#style"), renderer.id, renderer.desc, selected);
+    if (selected) {
+	this.currentRenderer = renderer;
+    }
+}
 
 app.prepareRender = function() {
     let self = this;
     // select elements
 
     /////////////////////////////////////
-    // three.js
+    // size
 
     let width = 800;
     this.width = width;
@@ -143,80 +156,24 @@ app.prepareRender = function() {
     let zStep = -2;
     this.zStep = zStep;
 
-    // renderer
+    // webGLRenderer
 
-    let renderer = new THREE.WebGLRenderer();
-    this.renderer = renderer;
+    let webGLRenderer = new THREE.WebGLRenderer();
+    this.webGLRenderer = webGLRenderer;
     
-    renderer.setSize(width, height);
-    document.getElementById('three').appendChild(renderer.domElement);
+    webGLRenderer.setSize(width, height);
+    document.getElementById('three').appendChild(webGLRenderer.domElement);
 
     // camera
 
     let camera = new THREE.PerspectiveCamera(15, width / height, 1, width * 3);
     this.camera = camera;
 
-    let distanceFactor = 2.1
-
-
-    let angleX = Math.PI/6;
-    let angleY = 0;
-
-    function setCameraAngle(angleX, angleY) {
-	camera.position.x = width/2 + width * distanceFactor * Math.sin(angleY);
-	camera.position.y = height/3 + width * distanceFactor * Math.sin(angleX) * Math.cos(angleY);
-	camera.position.z = zStep*75 + width * distanceFactor * Math.cos(angleX) * Math.cos(angleY);
-
-
-	camera.rotation.x = - angleX;
-	camera.rotation.y = angleY;
-    }  
-
-    setCameraAngle(angleX, angleY);
-
-    let ANGLE_STEP = 3 * Math.PI / 180;
-
-    let MIN_ANGLE_X = 0;
-    let MAX_ANGLE_X = Math.PI/2;
-    let MIN_ANGLE_Y = -Math.PI/2;
-    let MAX_ANGLE_Y = Math.PI/2;
-
-
-    document.addEventListener('keydown', function(event) {
-	let code = event.code;
-	if (code == 'KeyW') {
-	    angleX += ANGLE_STEP;
-	    if (angleX > MAX_ANGLE_X) angleX = MAX_ANGLE_X;
-	    setCameraAngle(angleX, angleY);
-	}
-	else if (code == 'KeyS') {
-	    angleX -= ANGLE_STEP;
-	    if (angleX < MIN_ANGLE_X) angleX = MIN_ANGLE_X;
-	    setCameraAngle(angleX, angleY);
-	}
-	else if (code == 'KeyA') {
-	    angleY -= ANGLE_STEP;
-	    if (angleY < MIN_ANGLE_Y) angleY = MIN_ANGLE_Y;
-	    setCameraAngle(angleX, angleY);
-	}
-	else if (code == 'KeyD') {
-	    angleY += ANGLE_STEP;
-	    if (angleY > MAX_ANGLE_Y) angleY = MAX_ANGLE_Y;
-	    setCameraAngle(angleX, angleY);
-	}
-    });
-
-
-    // scene draw
-
-    // let scene;
+    // styleRenderers
     
-    let oldMaterials;
-    this.oldMaterials = oldMaterials;
+    let styleRenderers = {}
 
-    let drawStyleFunctions = {}
-
-    this.drawStyleFunctions = drawStyleFunctions;
+    this.styleRenderers = styleRenderers;
     
     // common functions
     function lineMaterial(color) {
@@ -233,11 +190,11 @@ app.prepareRender = function() {
 
     // line
 
-    drawStyleFunctions["line"] = new FrequencyRenderer("line", "Line");
+    let lineRenderer = new LineRenderer("line", "Line");
 
-    drawStyleFunctions["line"].makeMaterial = lineMaterial;
+    lineRenderer.makeMaterial = lineMaterial;
 
-    drawStyleFunctions["line"].makeObject =
+    lineRenderer.makeObject =
 	function(prevVectorArry, vectorArray, material)
     {
 	let geometry = new THREE.Geometry();
@@ -245,13 +202,16 @@ app.prepareRender = function() {
 	return new THREE.Line(geometry, material);
     }
 
+    self.registerRenderer(lineRenderer, true);
+    
+    
     // frontmesh
 
-    drawStyleFunctions["frontmesh"] = new FrequencyRenderer("frontmesh", "Front Mesh");
+    let frontmeshRenderer = new LineRenderer("frontmesh", "Front Mesh");
 
-    drawStyleFunctions["frontmesh"].makeMaterial = meshMaterial;
+    frontmeshRenderer.makeMaterial = meshMaterial;
 
-    drawStyleFunctions["frontmesh"].makeObject =
+    frontmeshRenderer.makeObject =
 	function(prevVectorArry, vectorArray, material)
     {
 	let geometry = new THREE.Geometry();
@@ -273,14 +233,16 @@ app.prepareRender = function() {
 	}
 	return new THREE.Mesh(geometry, material);
     }
+    self.registerRenderer(frontmeshRenderer);
 
+    
     // upmesh
 
-    drawStyleFunctions["upmesh"] = new FrequencyRenderer("upmesh", "Up Mesh");
+    let upmeshRenderer = new LineRenderer("upmesh", "Up Mesh");
 
-    drawStyleFunctions["upmesh"].makeMaterial = meshMaterial;
+    upmeshRenderer.makeMaterial = meshMaterial;
 
-    drawStyleFunctions["upmesh"].makeObject =
+    upmeshRenderer.makeObject =
 	function(prevVectorArry, vectorArray, material)
     {
 	if (prevVectorArry) {
@@ -302,8 +264,10 @@ app.prepareRender = function() {
 	}
     }
 
-    // bar
+    self.registerRenderer(upmeshRenderer);
 
+    // bar
+    
     let barMaterials = new Array(256/4);
     for(let i = 0; i < barMaterials.length; i++) {
 	let base = 80 * 256;
@@ -315,10 +279,10 @@ app.prepareRender = function() {
 	});
     }
 
-    drawStyleFunctions["bar"] = new FrequencyRenderer("bar", "Bar");
-    drawStyleFunctions["bar"].makeMaterial = meshMaterial;
+    let barRenderer = new LineRenderer("bar", "Bar");
+    barRenderer.makeMaterial = meshMaterial;
 
-    drawStyleFunctions["bar"].makeObject =
+    barRenderer.makeObject =
 	function(prevVectorArry, vectorArray, material)
     {
 	let geometryArray = new Array(256/4);
@@ -365,27 +329,49 @@ app.prepareRender = function() {
 	}
 	return group;
     }
-    drawStyleFunctions["bar"].skipMaterialChange = true;
+    barRenderer.skipMaterialChange = true;
 
+    
+    self.registerRenderer(barRenderer);
+    
     ////////
 
+    let stopRenderer = new Renderer("stop", "Stop");
+    stopRenderer.cameraControl = undefined;
+    self.registerRenderer(stopRenderer);
 
-    let styleSelect = $("#style");
-    drawStyleFunctions["line"].addOption(styleSelect, true);
-    drawStyleFunctions["frontmesh"].addOption(styleSelect);
-    drawStyleFunctions["upmesh"].addOption(styleSelect);
-    drawStyleFunctions["bar"].addOption(styleSelect);
-    (new Renderer("stop", "Stop")).addOption(styleSelect);
-
-    ///////////////////////////////////////
-    // rendering
-
-
+    /////////////////////////////////////////////////////
+    // camera control
+    
+    self.currentRenderer = self.currentRenderer || lineRenderer;
+    self.currentRenderer.cameraControl.set(camera);
+    
+    document.addEventListener('keydown', function(event) {
+	let code = event.code;
+	if (self.currentRenderer && self.currentRenderer.cameraControl) {
+	    let cc = self.currentRenderer.cameraControl;
+	    if (code == 'KeyW') {
+		cc.up(camera);
+	    }
+	    else if (code == 'KeyS') {
+		cc.down(camera);
+	    }
+	    else if (code == 'KeyA') {
+		cc.left(camera);
+	    }
+	    else if (code == 'KeyD') {
+		cc.right(camera);
+	    }
+	}
+    });
+    
     // event listeners to change settings
 
     function onchangeFunction() {
 	window.cancelAnimationFrame(self.drawVisual);
+	
 	if (self.scene) {
+	    console.log('clear scene');
 	    let objs = new Array();
 	    self.scene.traverse(function(obj) {
 		if(obj.id != self.scene.id) objs.push(obj);
@@ -399,7 +385,7 @@ app.prepareRender = function() {
 	    objs = undefined;
 	}
 	
-	self.visualize(app);
+	self.visualize();
     }
 
     $("#fftsize,#nlines,#style").change(onchangeFunction);
@@ -411,42 +397,114 @@ app.prepareRender = function() {
 
 }
 
-function deepDispose(obj) {
-    if (obj.geometry) obj.geometry.dispose();
-    // group?
-    if (obj.traverse) {
-	obj.traverse(function(subObj) {
-	    if(obj.id != subObj.id) deepDispose(subObj);
-	});
-    }
-    if (obj.dispose) obj.dispose();
+app.visualize = function() {
+    let self = this;
+
+    let frameLength = app.analyser.fftSize / app.audioCtx.sampleRate;
+    $("#frameLength").text(frameLength.toFixed(4));
+
+    self.analyser.fftSize = Number($("#fftsize").val());  
+    self.nShapes = Number($("#nlines").val());
+
+    let drawStyle = $("#style").val();
+
+    self.currentRenderer = self.styleRenderers[drawStyle];
+
+    self.currentRenderer.begin(self);
 }
 
 
+////////////////////////////////////////////////
+// CameraControl
 
-app.visualize = function() {
+function CameraControl(poi, distance, angleX, angleY) {
+    let width = 800;
+    let height = 400;
+    this.poi = poi || new THREE.Vector3(width/2, height/3, -150); 
+    this.distance = distance || 2.1 * width;
+    this.angleX = angleX || Math.PI/6;
+    this.angleY = angleY || 0;
+
+    this.angleStep = 3 * Math.PI / 180;
+    this.minAngleX = 0;
+    this.maxAngleX = Math.PI/2;
+    this.minAngleY = -Math.PI/2;
+    this.maxAngleY = Math.PI/2;
+}
+
+CameraControl.prototype.set = function(camera) {
+    camera.position.x = this.poi.x +
+	this.distance * Math.sin(this.angleY);
+    camera.position.y = this.poi.y +
+	this.distance * Math.sin(this.angleX) * Math.cos(this.angleY);
+    camera.position.z = this.poi.z +
+	this.distance * Math.cos(this.angleX) * Math.cos(this.angleY);
+
+    camera.rotation.x = -this.angleX;
+    camera.rotation.y = this.angleY;
+}
+
+CameraControl.prototype.up = function(camera) {
+    this.angleX += this.angleStep;
+    if (this.angleX > this.maxAngleX) this.angleX = this.maxAngleX;
+    this.set(camera);
+}
+CameraControl.prototype.down = function(camera) {
+    this.angleX -= this.angleStep;
+    if (this.angleX < this.minAngleX) this.angleX = this.minAngleX;
+    this.set(camera);
+}
+CameraControl.prototype.right = function(camera) {
+    this.angleY += this.angleStep;
+    if (this.angleY > this.maxAngleY) this.angleY = this.maxAngleY;
+    this.set(camera);
+}
+CameraControl.prototype.left = function(camera) {
+    this.angleY -= this.angleStep;
+    if (this.angleY < this.minAngleY) this.angleY = this.minAngleY;
+    this.set(camera);
+}
+
+
+////////////////////////////////////////////////
+// Renderer
+
+function Renderer(id, desc) {
+    this.id = id;
+    this.desc = desc;
+}
+
+Renderer.prototype.cameraControl = new CameraControl;
+
+Renderer.prototype.begin = function() { }
+
+function LineRenderer(id, desc) {
+    this.base = Renderer;
+    this.base(id, desc);
+}
+
+LineRenderer.prototype = new Renderer;
+
+
+LineRenderer.prototype.begin = function(app) {
     let self = this;
-    self.analyser.fftSize = Number($("#fftsize").val());  
-    
-    let NARRAY = Number($("#nlines").val());
-    let bufferLength = self.analyser.frequencyBinCount;
-    console.log(bufferLength);
-    let drawStyle = $("#style").val();
 
-    // stop rendering
-    if (drawStyle == "off") return;
+    let analyser = app.analyser;
+    let nShapes = app.nShapes;
+
+    app.scene = new THREE.Scene();
+    let scene = app.scene;
     
-    let frameLength = self.analyser.fftSize / self.audioCtx.sampleRate;
-    $("#frameLength").text(frameLength.toFixed(4));
-    
+    let bufferLength = analyser.frequencyBinCount;
+    console.log(bufferLength);
+
     let dataArray = new Uint8Array(bufferLength);  
 
-    let objectArray = new Array(NARRAY);
+    let objectArray = new Array(nShapes);
     
-    self.scene = new THREE.Scene();
-
+    
     let material;
-    material = self.drawStyleFunctions[drawStyle].makeMaterial(0xffffff);
+    material = self.makeMaterial(0xffffff);
 
     // dispose old oldMaterials
     if (self.oldMaterials) {
@@ -454,13 +512,13 @@ app.visualize = function() {
     }
 
     // rebuild oldMaterials
-    self.oldMaterials = new Array(NARRAY);
-    for(let i = 0; i < NARRAY; i++) {
-	let addColor = Math.floor(256 * (i/NARRAY));
+    self.oldMaterials = new Array(nShapes);
+    for(let i = 0; i < nShapes; i++) {
+	let addColor = Math.floor(256 * (i/nShapes));
 	if (i % 2 == 0)
-	    addColor = Math.floor(256 * 256 * 256 * ((NARRAY-i)/NARRAY));
+	    addColor = Math.floor(256 * 256 * 256 * ((nShapes-i)/nShapes));
 	let c = 256 * 125 + addColor;
-	self.oldMaterials[i] = self.drawStyleFunctions[drawStyle].makeMaterial(c);
+	self.oldMaterials[i] = self.makeMaterial(c);
     }
 
     // draw() sets
@@ -468,37 +526,37 @@ app.visualize = function() {
     let prevVectorArry;
 
     function draw() {
-	self.drawVisual = requestAnimationFrame(draw);
+	app.drawVisual = requestAnimationFrame(draw);
 
 	{
 	    // remove old object
-	    let oldObj = objectArray[(arrayIdx + 1)%NARRAY];
+	    let oldObj = objectArray[(arrayIdx + 1)%nShapes];
 	    if (oldObj) {
-		self.scene.remove(oldObj);
+		scene.remove(oldObj);
 		deepDispose(oldObj);
 	    }
 	    // move objects backward
-	    self.scene.traverse(function(obj) {
-		if(self.scene.id != obj.id) {
-		    obj.translateZ(self.zStep);
+	    scene.traverse(function(obj) {
+		if(scene.id != obj.id) {
+		    obj.translateZ(app.zStep);
 		}
 	    });
 	    // change material of last object
-	    if (!self.drawStyleFunctions[drawStyle].skipMaterialChange) {
-      		let prevObj = objectArray[(arrayIdx + NARRAY -1) % NARRAY];
+	    if (!self.skipMaterialChange) {
+      		let prevObj = objectArray[(arrayIdx + nShapes -1) % nShapes];
       		if (prevObj) {
       		    prevObj.material = self.oldMaterials[arrayIdx];
       		}
 	    }
 	}
 	
-	self.analyser.getByteFrequencyData(dataArray);
+	analyser.getByteFrequencyData(dataArray);
 
-	let maxDrawFreq = self.maxShowingFrequency /
-	    (self.analyser.context.sampleRate / self.analyser.fftSize);
+	let maxDrawFreq = app.maxShowingFrequency /
+	    (analyser.context.sampleRate / analyser.fftSize);
 	maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
 	
-	let unitWidth = (self.width / maxDrawFreq);
+	let unitWidth = (app.width / maxDrawFreq);
 	
 	let vectorArray = new Array();
 
@@ -512,7 +570,7 @@ app.visualize = function() {
 	    let maxLy = 0;
 	    let cnt = 0;
 
-	    let lxFactor = self.width / Math.log(self.width);
+	    let lxFactor = app.width / Math.log(app.width);
 	    
 	    for(let i = 0; i < maxDrawFreq; i++) {
 		let y = dataArray[i];
@@ -539,20 +597,20 @@ app.visualize = function() {
 		
 		x += unitWidth;
 	    }
-	    let obj = self.drawStyleFunctions[drawStyle].makeObject(
+	    let obj = self.makeObject(
 		prevVectorArry,
 		vectorArray,
 		material
 	    );
 	    if (obj) {
 		objectArray[arrayIdx] = obj;
-		self.scene.add(obj);
+		scene.add(obj);
 	    }
 	}
-	self.renderer.render(self.scene, self.camera);
+	app.webGLRenderer.render(scene, app.camera);
 
 	prevVectorArry = vectorArray;
-	arrayIdx = (arrayIdx + 1) % NARRAY
+	arrayIdx = (arrayIdx + 1) % nShapes
     };
 
     draw();
