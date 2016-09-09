@@ -1,4 +1,6 @@
-#Voice-change-o-matic
-A Web Audio API-powered voice changer and visualizer.
+#Audio Visualizer
+A Web Audio API-powered 3D audio visualizer.
 
-[Run the demo live](http://mdn.github.io/voice-change-o-matic/)
+It is based on [MDN Voice-change-O-matic](https://github.com/mdn/voice-change-o-matic).
+
+[Run the visualizer live](https://hj-lee.github.io/audio-visualizer/)
