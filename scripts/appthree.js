@@ -174,41 +174,15 @@ app.prepareRender = function() {
 
     this.styleRenderers = styleRenderers;
     
-    // common functions
-    function lineMaterial(color) {
-	return new THREE.LineBasicMaterial({
-	    color: color
-	});  
-    }
-
-    function meshMaterial(color) {
-	return new THREE.MeshBasicMaterial({
-	    color: color
-	});  
-    }
-
     // line
 
     let lineRenderer = new LineRenderer("line", "Line");
-
-    lineRenderer.makeMaterial = lineMaterial;
-
-    lineRenderer.makeObject =
-	function(prevVectorArry, vectorArray, material)
-    {
-	let geometry = new THREE.Geometry();
-	geometry.vertices = vectorArray;
-	return new THREE.Line(geometry, material);
-    }
-
     self.registerRenderer(lineRenderer, true);
     
     
     // frontmesh
 
-    let frontmeshRenderer = new LineRenderer("frontmesh", "Front Mesh");
-
-    frontmeshRenderer.makeMaterial = meshMaterial;
+    let frontmeshRenderer = new MeshRenderer("frontmesh", "Front Mesh");
 
     frontmeshRenderer.makeObject =
 	function(prevVectorArry, vectorArray, material)
@@ -237,9 +211,7 @@ app.prepareRender = function() {
     
     // upmesh
 
-    let upmeshRenderer = new LineRenderer("upmesh", "Up Mesh");
-
-    upmeshRenderer.makeMaterial = meshMaterial;
+    let upmeshRenderer = new MeshRenderer("upmesh", "Up Mesh");
 
     upmeshRenderer.makeObject =
 	function(prevVectorArry, vectorArray, material)
@@ -278,8 +250,7 @@ app.prepareRender = function() {
 	});
     }
 
-    let barRenderer = new LineRenderer("bar", "Bar");
-    barRenderer.makeMaterial = meshMaterial;
+    let barRenderer = new MeshRenderer("bar", "Bar");
 
     barRenderer.makeObject =
 	function(prevVectorArry, vectorArray, material)
@@ -324,12 +295,11 @@ app.prepareRender = function() {
 	    if (geometryArray[i].vertices.length > 0) {
 		group.add(new THREE.Mesh(geometryArray[i], barMaterials[i]));
 	    }
-	    geometryArray[i].dispose();
+	    // geometryArray[i].dispose();
 	}
 	return group;
     }
     barRenderer.skipMaterialChange = true;
-
     
     self.registerRenderer(barRenderer);
     
@@ -468,6 +438,7 @@ Renderer.prototype.cameraControl = new CameraControl;
 
 Renderer.prototype.begin = function() { }
 
+// Line Renderer
 function LineRenderer(id, desc) {
     this.base = Renderer;
     this.base(id, desc);
@@ -475,6 +446,37 @@ function LineRenderer(id, desc) {
 
 LineRenderer.prototype = new Renderer;
 
+LineRenderer.prototype.makeMaterial = function(color) {
+    return new THREE.LineBasicMaterial({
+	color: color
+    });  
+}
+
+LineRenderer.prototype.makeObject =
+    function(prevVectorArry, vectorArray, material)
+{
+    let geometry = new THREE.Geometry();
+    geometry.vertices = vectorArray;
+    return new THREE.Line(geometry, material);
+}
+
+
+// MeshRenderer
+
+function MeshRenderer(id, desc) {
+    this.base = LineRenderer;
+    this.base(id, desc);
+}
+
+MeshRenderer.prototype = new LineRenderer;
+
+MeshRenderer.prototype.makeMaterial = function(color) {
+    return new THREE.MeshBasicMaterial({
+	color: color
+    });  
+}
+
+// LineRenderer begin
 
 LineRenderer.prototype.begin = function(app) {
     let self = this;
