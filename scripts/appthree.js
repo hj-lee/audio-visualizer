@@ -1,12 +1,42 @@
 // (function () {
 
-// fork getUserMedia for multiple browser versions, for those
-// that need prefixes
+$(function() {
+    // fork getUserMedia for multiple browser versions, for those
+    // that need prefixes
+    navigator.getUserMedia = (navigator.getUserMedia ||
+                              navigator.webkitGetUserMedia ||
+                              navigator.mozGetUserMedia ||
+                              navigator.msGetUserMedia);
 
-navigator.getUserMedia = (navigator.getUserMedia ||
-                          navigator.webkitGetUserMedia ||
-                          navigator.mozGetUserMedia ||
-                          navigator.msGetUserMedia);
+    // prepare
+    app.prepare();
+    
+    if (navigator.getUserMedia) {
+	navigator.getUserMedia (
+	    // constraints - only audio needed for this app
+	    {
+		audio: true
+	    },
+
+	    // Success callback
+	    function (stream) {
+		app.connected(stream);
+		app.prepareRender();
+		app.visualize();
+	    }
+	    ,
+
+	    // Error callback
+	    function(err) {
+		console.log('The following gUM error occured: ' + err);
+	    }
+	);
+    } else {
+	console.log('getUserMedia not supported on your browser!');
+    }
+});
+
+
 
 
 ////////////////////////////////////////////////
@@ -29,6 +59,7 @@ function FrequencyRenderer(id, desc) {
     this.base = Renderer;
     this.base(id, desc);
 }
+
 FrequencyRenderer.prototype = new Renderer;
 
 
@@ -37,6 +68,20 @@ FrequencyRenderer.prototype = new Renderer;
 // The 'app' object
 
 var app = {};
+
+app.prepare = function() {
+    var self = this;
+
+    var fftSizeSelect = document.getElementById("fftsize");
+    this.fftSizeSelect = fftSizeSelect;
+    var nlinesSelect = document.getElementById("nlines");
+    this.nlinesSelect = nlinesSelect;
+    var styleSelect = document.getElementById("style");
+    this.styleSelect = styleSelect;
+    var smoothingSelect = document.getElementById("smoothing");
+    this.smoothingSelect = smoothingSelect;
+    
+}
 
 // 
 app.connected =  function(stream) {
@@ -59,27 +104,17 @@ app.connected =  function(stream) {
     source.connect(analyser);
 }
 
-app.prepare = function() {
+app.prepareRender = function() {
     var self = this;
     // select elements
 
-    var fftSizeSelect = document.getElementById("fftsize");
-    this.fftSizeSelect = fftSizeSelect;
-    var nlinesSelect = document.getElementById("nlines");
-    this.nlinesSelect = nlinesSelect;
-    var styleSelect = document.getElementById("style");
-    this.styleSelect = styleSelect;
-    var smoothingSelect = document.getElementById("smoothing");
 
-    // span elements
 
-    var sampleRateElm = document.getElementById("sampleRate");
-    var frameLengthElm = document.getElementById("frameLength");
-    this.frameLengthElm = frameLengthElm;
-
-    //
-    sampleRateElm.innerText = this.audioCtx.sampleRate;
-
+    // var frameLengthElm = document.getElementById("frameLength");
+    // this.frameLengthElm = frameLengthElm;
+    
+    $("#sampleRate").text(this.audioCtx.sampleRate);
+    
 
     // var drawVisual;
 
@@ -327,11 +362,11 @@ app.prepare = function() {
 
     drawStyleFunctions["off"] = new Renderer("off", "Off");
     
-    drawStyleFunctions["line"].addOption(styleSelect, true);
-    drawStyleFunctions["frontmesh"].addOption(styleSelect);
-    drawStyleFunctions["upmesh"].addOption(styleSelect);
-    drawStyleFunctions["bar"].addOption(styleSelect);
-    drawStyleFunctions["off"].addOption(styleSelect);
+    drawStyleFunctions["line"].addOption(self.styleSelect, true);
+    drawStyleFunctions["frontmesh"].addOption(self.styleSelect);
+    drawStyleFunctions["upmesh"].addOption(self.styleSelect);
+    drawStyleFunctions["bar"].addOption(self.styleSelect);
+    drawStyleFunctions["off"].addOption(self.styleSelect);
 
     ///////////////////////////////////////
     // rendering
@@ -358,13 +393,13 @@ app.prepare = function() {
 	self.visualize(app);
     }
 
-    fftSizeSelect.onchange = onchangeFunction;
+    self.fftSizeSelect.onchange = onchangeFunction;
 
-    nlinesSelect.onchange = onchangeFunction;
+    self.nlinesSelect.onchange = onchangeFunction;
 
-    styleSelect.onchange = onchangeFunction;
+    self.styleSelect.onchange = onchangeFunction;
 
-    smoothingSelect.onchange = function(e) {
+    self.smoothingSelect.onchange = function(e) {
 	var smoothing = Number(smoothingSelect.value);
 	app.analyser.smoothingTimeConstant = smoothing;
     }
@@ -396,8 +431,7 @@ app.visualize = function() {
     if (drawStyle == "off") return;
     
     var frameLength = self.analyser.fftSize / self.audioCtx.sampleRate;
-    self.frameLengthElm.innerText = frameLength;
-
+    $("#frameLength").text(frameLength.toFixed(4));
     
     var dataArray = new Uint8Array(bufferLength);  
 
@@ -518,32 +552,6 @@ app.visualize = function() {
 }
 
 //////////////////////////////////////////////////////
-
-
-
-if (navigator.getUserMedia) {
-    navigator.getUserMedia (
-	// constraints - only audio needed for this app
-	{
-            audio: true
-	},
-
-	// Success callback
-	function (stream) {
-	    app.connected(stream);
-	    app.prepare();
-	    app.visualize();
-	}
-	,
-
-	// Error callback
-	function(err) {
-            console.log('The following gUM error occured: ' + err);
-	}
-    );
-} else {
-    console.log('getUserMedia not supported on your browser!');
-}
 
 
 // })();
