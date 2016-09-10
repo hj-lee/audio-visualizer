@@ -81,7 +81,7 @@ app.prepare = function() {
     this.prepareAnalyser();
     this.prepareMisc();
     this.prepareRender();
-}
+};
 
 app.prepareAnalyser = function() {
     // set up forked web audio context, for multiple browsers
@@ -98,15 +98,15 @@ app.prepareAnalyser = function() {
     analyser.minDecibels = -90;
     analyser.maxDecibels = -10;
     analyser.smoothingTimeConstant = 0.0;
-}
+};
 
 app.prepareMisc = function() {
     // variables
     // max frequency of interest
-    this.maxShowingFrequency = 15000;
+    this.maxShowingFrequency = 20000;
     
     // set sample rate
-    let sampleRate = this.audioCtx.sampleRate
+    let sampleRate = this.audioCtx.sampleRate;
     $("#sampleRate").text(sampleRate);
     
     // add fftsize options
@@ -125,7 +125,7 @@ app.prepareMisc = function() {
 	    addOption(fftSelect, fft, fft, selected);    
 	}
     }
-}
+};
 
 
 app.connected =  function(stream) {
@@ -133,7 +133,7 @@ app.connected =  function(stream) {
     let source = audioCtx.createMediaStreamSource(stream);
     source.connect(this.analyser);
     this.visualize();
-}
+};
 
 app.registerRenderer = function(renderer, selected = false) {
     this.styleRenderers[renderer.id] = renderer;
@@ -141,7 +141,7 @@ app.registerRenderer = function(renderer, selected = false) {
     if (selected) {
 	this.currentRenderer = renderer;
     }
-}
+};
 
 app.prepareRender = function() {
     let self = this;
@@ -170,7 +170,7 @@ app.prepareRender = function() {
 
     // styleRenderers
     
-    let styleRenderers = {}
+    let styleRenderers = {};
 
     this.styleRenderers = styleRenderers;
 
@@ -224,7 +224,7 @@ app.prepareRender = function() {
 	self.analyser.smoothingTimeConstant = smoothing;
     });
 
-}
+};
 
 app.visualize = function() {
     let self = this;
@@ -244,7 +244,7 @@ app.visualize = function() {
     self.currentRenderer = self.styleRenderers[drawStyle];
 
     self.currentRenderer.begin(self);
-}
+};
 
 
 ////////////////////////////////////////////////
@@ -280,24 +280,27 @@ CameraControl.prototype.set = function(camera) {
 
     camera.rotation.x = -this.angleX;
     camera.rotation.y = this.angleY;
-}
+};
 
 CameraControl.prototype.up = function(camera) {
     this.angleX += this.angleStep;
     this.set(camera);
-}
+};
+
 CameraControl.prototype.down = function(camera) {
     this.angleX -= this.angleStep;
     this.set(camera);
-}
+};
+
 CameraControl.prototype.right = function(camera) {
     this.angleY += this.angleStep;
     this.set(camera);
-}
+};
+
 CameraControl.prototype.left = function(camera) {
     this.angleY -= this.angleStep;
     this.set(camera);
-}
+};
 
 
 ////////////////////////////////////////////////
@@ -310,7 +313,7 @@ function Renderer(id, desc) {
 
 Renderer.prototype.cameraControl = new CameraControl;
 
-Renderer.prototype.begin = function() { }
+Renderer.prototype.begin = function() { };
 
 Renderer.renderers = [];
 
@@ -318,7 +321,7 @@ Renderer.renderers = [];
 // Line Renderer
 
 function LineRenderer(id, desc) {
-    let base = Renderer
+    let base = Renderer;
     base.call(this, id, desc);
     this.base = base;
 }
@@ -326,7 +329,7 @@ function LineRenderer(id, desc) {
 LineRenderer.prototype = new Renderer;
 
 // distance between each frame
-LineRenderer.prototype.zStep = -2;
+LineRenderer.prototype.zStep = -10;
 
 LineRenderer.prototype.cleanUp = function() {
     // dispose scene objects
@@ -345,13 +348,13 @@ LineRenderer.prototype.cleanUp = function() {
     this.material = undefined;
 
     this.data = undefined;
-}
+};
 
 LineRenderer.prototype.makeMaterial = function(color) {
     return new THREE.LineBasicMaterial({
 	color: color
     });
-}
+};
 
 
 LineRenderer.prototype.makeObject =
@@ -360,7 +363,7 @@ LineRenderer.prototype.makeObject =
     let geometry = new THREE.Geometry();
     geometry.vertices = vectorArray;
     return new THREE.Line(geometry, material);
-}
+};
 
 ///////////////
 // LineRenderer begin
@@ -370,24 +373,22 @@ LineRenderer.prototype.begin = function(app) {
     this.app = app;
     this.prepare();
     
-    // requestAnimationFrame requires function
-    // this of lineRenderer.draw() is not a LineRenderer.
     function draw() {
 	app.drawVisual = requestAnimationFrame(draw);
-	self.draw(self);
+	self.draw();
     }
     draw();
-}
+};
 
 LineRenderer.prototype.getBufferLength = function() {
     return this.analyser.frequencyBinCount;
-}
+};
 
 LineRenderer.prototype.setCameraPOI = function() {
     this.cameraControl.poi
 	= new THREE.Vector3(this.width/2, this.height/3, -50);
     this.cameraControl.distance = 2.1 * this.width;
-}
+};
 
 LineRenderer.prototype.prepare = function() {
     let app = this.app;
@@ -444,7 +445,7 @@ LineRenderer.prototype.prepare = function() {
     this.frameCnt = 0;
     this.prevTime = performance.now();
     this.arrayIdx = 0;
-}
+};
 
 LineRenderer.prototype.prepareMaterials = function() {
     let nShapes = this.nShapes;
@@ -463,7 +464,7 @@ LineRenderer.prototype.prepareMaterials = function() {
 	let c = 256 * 125 + addColor;
 	this.oldMaterials[i] = this.makeMaterial(c);
     }
-}
+};
 
 LineRenderer.prototype.changeLastMaterial = function() {
     let self = this;
@@ -472,15 +473,15 @@ LineRenderer.prototype.changeLastMaterial = function() {
     if (prevObj) {
       	prevObj.material = self.oldMaterials[self.arrayIdx];
     }
-}
+};
 
 LineRenderer.prototype.getData = function(dataArray) {
     this.analyser.getByteFrequencyData(dataArray);    
-}
+};
 
 LineRenderer.prototype.changeX = function(x) {
-    return Math.log(1+x) * this.lxFactor
-}
+    return Math.log(1+x) * this.lxFactor;
+};
 
 LineRenderer.prototype.drawLoop
     = function(dataArray, vectorArray, maxDrawFreq, unitWidth)
@@ -507,7 +508,7 @@ LineRenderer.prototype.drawLoop
 	if (self.changeZ) lz = self.changeZ(z);
 	
 	// skip close log(1+x) positions, pick max y
-	if (lx - preLx >= 1.0) {
+	if (lx - preLx >= 0.9) {
 	    vectorArray.push(
 		new THREE.Vector3(lx, ly, lz)
 	    );
@@ -521,10 +522,10 @@ LineRenderer.prototype.drawLoop
 	}
 	x += unitWidth;
     }
-}    
+};
 
-LineRenderer.prototype.draw = function (self) {
-    // let app = self.app;
+LineRenderer.prototype.draw = function () {
+    let self = this;
     
     let analyser = self.analyser;
     let nShapes = self.nShapes;
@@ -590,7 +591,7 @@ LineRenderer.prototype.draw = function (self) {
     self.data.prevVectorArry = vectorArray;
     self.arrayIdx = (self.arrayIdx + 1) % nShapes;
     
-}
+};
 
 
 Renderer.lineRenderer = new LineRenderer("line", "Line");
@@ -611,7 +612,7 @@ MeshRenderer.prototype.makeMaterial = function(color) {
     return new THREE.MeshBasicMaterial({
 	color: color
     });  
-}
+};
 
 /////////////////
 
@@ -640,7 +641,7 @@ Renderer.frontmeshRenderer.makeObject =
 	}
     }
     return new THREE.Mesh(geometry, material);
-}
+};
 
 Renderer.renderers.push(Renderer.frontmeshRenderer);
 
@@ -668,7 +669,7 @@ Renderer.upmeshRenderer.makeObject =
 	}
 	return new THREE.Mesh(geometry, material);
     }
-}
+};
 
 Renderer.renderers.push(Renderer.upmeshRenderer);
 
@@ -691,16 +692,16 @@ Renderer.barRenderer.prepareMaterials = function() {
 	}
 	this.barMaterials = barMaterials;
     }
-}
+};
 
-Renderer.barRenderer.changeLastMaterial = undefined
+Renderer.barRenderer.changeLastMaterial = undefined;
 
 Renderer.barRenderer.cleanUp = function() {
     Object.getPrototypeOf(this).cleanUp.call(this);
     // MeshRenderer.prototype.cleanUp.call(this);
     disposeMaterials(this.barMaterials);
     this.barMaterials = undefined;
-}
+};
 
 Renderer.barRenderer.makeObject =
     function(prevVectorArry, vectorArray, material)
@@ -750,7 +751,8 @@ Renderer.barRenderer.makeObject =
 	// geometryArray[i].dispose();
     }
     return group;
-}
+};
+
 Renderer.barRenderer.skipMaterialChange = true;
 
 Renderer.renderers.push(Renderer.barRenderer);
@@ -772,26 +774,26 @@ WaveRenderer.prototype.setCameraPOI = function() {
     this.cameraControl.poi
 	= new THREE.Vector3(this.width/2, 0, -50);
     this.cameraControl.distance = 2.1 * this.width;    
-}
+};
 
 WaveRenderer.prototype.getBufferLength = function() {
     return this.analyser.fftSize;
-}
+};
 
 WaveRenderer.prototype.prepare = function() {
     this.base.prototype.prepare.call(this);
     this.maxDrawFreq = this.bufferLength;
-}
+};
 
 WaveRenderer.prototype.getData = function(dataArray) {
     this.analyser.getByteTimeDomainData(dataArray);
-}
+};
 
-WaveRenderer.prototype.changeX = undefined
+WaveRenderer.prototype.changeX = undefined;
 
 WaveRenderer.prototype.changeY = function(y) {
     return (y-127.5)*(this.height/256);
-}
+};
 
 Renderer.waveRenderer = new WaveRenderer("wave","Sine Wave");
 
@@ -809,8 +811,6 @@ function KissFFTRenderer(id, desc) {
 
 KissFFTRenderer.prototype = new WaveRenderer;
 
-// KissFFTRenderer.prototype.zStep = -2;
-
 KissFFTRenderer.prototype.prepare = function() {
     // no need to reset maxDrawFreq
     LineRenderer.prototype.prepare.call(this);
@@ -825,14 +825,14 @@ KissFFTRenderer.prototype.prepare = function() {
     material3[0] = this.makeMaterial(0xffffff);
     material3[1] = this.makeMaterial(0x00ff00);
     material3[2] = this.makeMaterial(0x0000ff);
-}
+};
 
 KissFFTRenderer.prototype.cleanUp = function() {
     disposeMaterials(this.material3);
     this.material3 = undefined;
     
     this.base.prototype.cleanUp.call(this);
-}
+};
 
 KissFFTRenderer.prototype.getData = function(dataArray) {
     // get time domain data
@@ -841,18 +841,19 @@ KissFFTRenderer.prototype.getData = function(dataArray) {
     let input = this.data.floatData;
     for (let i = 0; i < size; i++) {
 	input[i] = (dataArray[i]-127.5);
-	// if (Math.abs(input[i]) < 0.6) input[i] = 0;
+	if (Math.abs(input[i]) < 0.6) input[i] = 0;
 	input[i] /= 256.0;
     }
     this.data.out = this.data.fftproc.forward(input);
-}
+};
 
 KissFFTRenderer.prototype.getY = function(i) {
     return this.data.out[i*2];
-}
+};
+
 KissFFTRenderer.prototype.getZ = function(i) {
     return this.data.out[i*2+1];
-}
+};
 
 KissFFTRenderer.prototype.changeX = LineRenderer.prototype.changeX;
 KissFFTRenderer.prototype.changeY = undefined;
@@ -869,15 +870,15 @@ KissFFTRenderer.prototype.changeLastMaterial = function() {
 	    o.material = self.oldMaterials[self.arrayIdx];
 	});
     }
-}
+};
 
 
-KissFFTRenderer.prototype.zStep = -100;
+KissFFTRenderer.prototype.zStep = -10;
 
 KissFFTRenderer.prototype.makeObject =
     function(prevVectorArry, vectorArray, material)
 {
-    let nlines = 2;
+    let nlines = 1;
     let group = new THREE.Group();
     let geos = new Array(nlines);
     for(let i = 0; i < nlines; i++) {
@@ -885,8 +886,8 @@ KissFFTRenderer.prototype.makeObject =
     }
 
     function transform(v) {
-	return v * 0.5;
-	// return Math.sign(v) * Math.log(1+Math.abs(v)) * 20;
+	// return v * 0.5;
+	return Math.sign(v) * Math.log(1+Math.abs(v)) * 20;
     }
 
     let yarr = new Array(3);
@@ -911,37 +912,37 @@ KissFFTRenderer.prototype.makeObject =
 	geos[0].vertices.push(
 	    new THREE.Vector3(x, yarr[0], 0)
 	);
-	{
-	    geos[1].vertices.push(
-		new THREE.Vector3(x-2, 0, 0)
-	    );	    
-	    geos[1].vertices.push(
-		new THREE.Vector3(x, yarr[1], yarr[2])
-	    );
-	    geos[1].vertices.push(
-		new THREE.Vector3(x+2, 0, 0)
-	    );
-	}
 	// {
 	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x-2, 0, 0)
+	// 	new THREE.Vector3(x-0.5, 0, 0)
+	//     );	    
+	//     geos[1].vertices.push(
+	// 	new THREE.Vector3(x, yarr[1], yarr[2])
+	//     );
+	//     geos[1].vertices.push(
+	// 	new THREE.Vector3(x+0.5, 0, 0)
+	//     );
+	// }
+	// {
+	//     geos[1].vertices.push(
+	// 	new THREE.Vector3(x-1, 0, 0)
 	//     );	    
 	//     geos[1].vertices.push(
 	// 	new THREE.Vector3(x, yarr[1], 0)
 	//     );
 	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x+2, 0, 0)
+	// 	new THREE.Vector3(x+1, 0, 0)
 	//     );
 	// }
 	// {
 	//     geos[2].vertices.push(
-	// 	new THREE.Vector3(x-2, 0, 0)
+	// 	new THREE.Vector3(x-1, 0, 0)
 	//     );	    
 	//     geos[2].vertices.push(
 	// 	new THREE.Vector3(x, 0, yarr[2])
 	//     );
 	//     geos[2].vertices.push(
-	// 	new THREE.Vector3(x+2, 0, 0)
+	// 	new THREE.Vector3(x+1, 0, 0)
 	//     );
 	// }
 	preX = x;
@@ -952,7 +953,7 @@ KissFFTRenderer.prototype.makeObject =
 	group.add(line);
     }
     return group;
-}
+};
 
 
 Renderer.cmpxRenderer = new KissFFTRenderer("kissline", "Line(Complex)");
