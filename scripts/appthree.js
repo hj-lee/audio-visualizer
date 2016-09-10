@@ -213,13 +213,10 @@ app.prepareRender = function() {
 
     function onchangeFunction() {
 	window.cancelAnimationFrame(self.drawVisual);
-	
-	if (self.scene) {
-	    console.log('clear scene');
-	    deepDispose(self.scene);
-	    self.scene = undefined;
-	}
-	
+
+	if (self.currentRenderer && self.currentRenderer.cleanUp) {
+	    self.currentRenderer.cleanUp();
+	}	
 	self.visualize();
     }
 
@@ -325,11 +322,35 @@ function LineRenderer(id, desc) {
 
 LineRenderer.prototype = new Renderer;
 
+function disposeMaterials(materials) {
+    if (materials) {
+	materials.forEach(function(m) { if(m.dispose) m.dispose(); });
+    }
+}
+
+LineRenderer.prototype.cleanUp = function() {
+    // dispose scene objects
+    if (this.scene) {
+	console.log('clear scene');
+	deepDispose(this.scene);
+	this.scene = undefined;
+    }
+
+    // dispose old oldMaterials
+    disposeMaterials(this.oldMaterials);
+    this.oldMaterials = undefined;
+    
+    // dispose material
+    if (this.material) this.material.dispose();
+    this.material = undefined;
+}
+
 LineRenderer.prototype.makeMaterial = function(color) {
     return new THREE.LineBasicMaterial({
 	color: color
     });  
 }
+
 
 LineRenderer.prototype.makeObject =
     function(prevVectorArry, vectorArray, material)
@@ -356,27 +377,49 @@ LineRenderer.prototype.begin = function(app) {
     draw();
 }
 
+LineRenderer.prototype.getBufferLength = function() {
+    return this.app.analyser.frequencyBinCount;
+}
 
 LineRenderer.prototype.prepare = function() {
     let app = this.app;
 
-    app.scene = new THREE.Scene();
-    let scene = app.scene;
+    this.scene = new THREE.Scene();
     
     let analyser = app.analyser;
     let nShapes = app.nShapes;
 
-    let bufferLength = analyser.frequencyBinCount;
-    this.bufferLength = bufferLength;
+    // let bufferLength = analyser.frequencyBinCount;
 
-    this.dataArray = new Uint8Array(bufferLength);  
-
+    let bufferLength = this.getBufferLength();
+    
+    // no need to reallocate
+    if(this.bufferLength != bufferLength) {
+	this.bufferLength = bufferLength;
+	this.dataArray = new Uint8Array(bufferLength);  
+    }
+    
     this.objectArray = new Array(nShapes);
-
     // camera
     this.cameraControl.set(app.camera);
     
-    this.material = this.makeMaterial(0xffffff);
+    this.material = this.material || this.makeMaterial(0xffffff);
+
+    this.prepareMaterials();
+
+    ////////
+    let maxDrawFreq = app.maxShowingFrequency /
+	(analyser.context.sampleRate / analyser.fftSize);
+    maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
+    this.maxDrawFreq = maxDrawFreq;
+
+    ////////
+    // draw() sets
+    this.arrayIdx = 0;    
+}
+
+LineRenderer.prototype.prepareMaterials = function() {
+    let nShapes = this.app.nShapes;
 
     // dispose old oldMaterials
     if (this.oldMaterials) {
@@ -392,18 +435,31 @@ LineRenderer.prototype.prepare = function() {
 	let c = 256 * 125 + addColor;
 	this.oldMaterials[i] = this.makeMaterial(c);
     }
-
-    // draw() sets
-    this.arrayIdx = 0;
-    
 }
 
-LineRenderer.prototype.draw = function draw(self) {
+LineRenderer.prototype.changeLastMaterial = function() {
+    let self = this;
+    let nShapes = self.app.nShapes;
+    let prevObj = self.objectArray[(self.arrayIdx + nShapes -1) % nShapes];
+    if (prevObj) {
+      	prevObj.material = self.oldMaterials[self.arrayIdx];
+    }
+}
+
+LineRenderer.prototype.getData = function(dataArray) {
+    this.app.analyser.getByteFrequencyData(dataArray);    
+}
+
+LineRenderer.prototype.changeX = function(x, xFactor) {
+    return Math.log(1+x) * xFactor
+}
+
+LineRenderer.prototype.draw = function (self) {
     let app = self.app;
     
     let analyser = app.analyser;
     let nShapes = app.nShapes;
-    let scene = app.scene;
+    let scene = self.scene;
 
     let bufferLength = self.bufferLength;
     let dataArray = self.dataArray;
@@ -425,19 +481,15 @@ LineRenderer.prototype.draw = function draw(self) {
 	    }
 	});
 	// change material of last object
-	if (!self.skipMaterialChange) {
-      	    let prevObj = objectArray[(self.arrayIdx + nShapes -1) % nShapes];
-      	    if (prevObj) {
-      		prevObj.material = self.oldMaterials[self.arrayIdx];
-      	    }
-	}
+	self.changeLastMaterial();
     }
 
-    analyser.getByteFrequencyData(dataArray);
+    // analyser.getByteFrequencyData(dataArray);
 
-    let maxDrawFreq = app.maxShowingFrequency /
-	(analyser.context.sampleRate / analyser.fftSize);
-    maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
+    self.getData(dataArray);
+    
+
+    let maxDrawFreq = self.maxDrawFreq;
     
     let unitWidth = (app.width / maxDrawFreq);
     
@@ -458,12 +510,15 @@ LineRenderer.prototype.draw = function draw(self) {
 	for(let i = 0; i < maxDrawFreq; i++) {
 	    let y = dataArray[i];
 
+	    
+	    // lx = Math.log(1+x) * lxFactor;
+	    // // ly = Math.log(1+barHeight) * 35;
+	    
 	    let lx = x;
 	    let ly = y;
 
-	    lx = Math.log(1+x) * lxFactor;
-	    // ly = Math.log(1+barHeight) * 35;
-
+	    if (self.changeX) lx = self.changeX(x, lxFactor);
+	    
 	    // skip close log(1+x) positions, pick max y
 	    if (lx - preLx >= 1.0) {
 		vectorArray.push(
@@ -578,71 +633,108 @@ Renderer.renderers.push(Renderer.upmeshRenderer);
 
 // bar
 
-{
-    let barMaterials = new Array(256/4);
-    for(let i = 0; i < barMaterials.length; i++) {
-	let base = 80 * 256;
-	if (i%2 == 0) base = 80;
-	let c = i * 4 * 256 * 256 + base;
-	// let c = (120 + i * 2) *(1+256+256*256);
-	barMaterials[i] = new THREE.MeshBasicMaterial({
-	    color: c
-	});
+Renderer.barRenderer = new MeshRenderer("bar", "Bar");
+
+Renderer.barRenderer.prepareMaterials = function() {
+    // Object.getPrototypeOf(this).prepareMaterials.call(this);
+    if (!this.barMaterials) {
+	let barMaterials = new Array(256/4);
+	for(let i = 0; i < barMaterials.length; i++) {
+	    let base = 80 * 256;
+	    if (i%2 == 0) base = 80;
+	    let c = i * 4 * 256 * 256 + base;
+	    // let c = (120 + i * 2) *(1+256+256*256);
+	    barMaterials[i] = new THREE.MeshBasicMaterial({
+		color: c
+	    });
+	}
+	this.barMaterials = barMaterials;
     }
-
-    Renderer.barRenderer = new MeshRenderer("bar", "Bar");
-    
-    Renderer.barRenderer.makeObject =
-	function(prevVectorArry, vectorArray, material)
-    {
-	let geometryArray = new Array(256/4);
-	for(let i = 0; i < geometryArray.length; i++) {
-	    geometryArray[i] = new THREE.Geometry();
-	}
-	let group = new THREE.Group();
-	let max = 0;
-	for(let i = 0; i < vectorArray.length-1; i++) {
-	    let vertex = vectorArray[i];
-	    let nextVertex = vectorArray[i+1];
-
-	    let idx = Math.floor(vertex.y/4);
-	    idx = Math.min(idx, geometryArray.length-1);
-
-	    vertex.y += 2;
-	    
-	    geometryArray[idx].vertices.push(
-		new THREE.Vector3(vertex.x, 0, 0)
-	    );
-	    geometryArray[idx].vertices.push(vertex);
-	    geometryArray[idx].vertices.push(
-		new THREE.Vector3(nextVertex.x, 0, 0)
-	    );
-	    geometryArray[idx].vertices.push(
-		new THREE.Vector3(nextVertex.x, vertex.y, 0)
-	    );
-	    
-	    let i4 = geometryArray[idx].vertices.length - 4;
-	    geometryArray[idx].faces.push(
-		new THREE.Face3(i4+2, i4+1, i4+0)
-	    );
-	    geometryArray[idx].faces.push(
-		new THREE.Face3(i4+3, i4+1, i4+2)
-	    );
-	}
-	// if (max > 255) max = 255;
-	// return new THREE.Mesh(geometry, barMaterials[Math.floor(max/4)]);
-	for(let i = 0; i < geometryArray.length; i++) {
-	    if (geometryArray[i].vertices.length > 0) {
-		group.add(new THREE.Mesh(geometryArray[i], barMaterials[i]));
-	    }
-	    // geometryArray[i].dispose();
-	}
-	return group;
-    }
-    Renderer.barRenderer.skipMaterialChange = true;
-    
-    Renderer.renderers.push(Renderer.barRenderer);
 }
+
+Renderer.barRenderer.changeLastMaterial = function() { }
+
+Renderer.barRenderer.cleanUp = function() {
+    Object.getPrototypeOf(this).cleanUp.call(this);
+    // MeshRenderer.prototype.cleanUp.call(this);
+    disposeMaterials(this.barMaterials);
+    this.barMaterials = undefined;
+}
+
+Renderer.barRenderer.makeObject =
+    function(prevVectorArry, vectorArray, material)
+{
+    let geometryArray = new Array(256/4);
+    for(let i = 0; i < geometryArray.length; i++) {
+	geometryArray[i] = new THREE.Geometry();
+    }
+    let group = new THREE.Group();
+    let max = 0;
+    for(let i = 0; i < vectorArray.length-1; i++) {
+	let vertex = vectorArray[i];
+	let nextVertex = vectorArray[i+1];
+
+	let idx = Math.floor(vertex.y/4);
+	idx = Math.min(idx, geometryArray.length-1);
+
+	vertex.y += 2;
+	
+	geometryArray[idx].vertices.push(
+	    new THREE.Vector3(vertex.x, 0, 0)
+	);
+	geometryArray[idx].vertices.push(vertex);
+	geometryArray[idx].vertices.push(
+	    new THREE.Vector3(nextVertex.x, 0, 0)
+	);
+	geometryArray[idx].vertices.push(
+	    new THREE.Vector3(nextVertex.x, vertex.y, 0)
+	);
+	
+	let i4 = geometryArray[idx].vertices.length - 4;
+	geometryArray[idx].faces.push(
+	    new THREE.Face3(i4+2, i4+1, i4+0)
+	);
+	geometryArray[idx].faces.push(
+	    new THREE.Face3(i4+3, i4+1, i4+2)
+	);
+    }
+    // if (max > 255) max = 255;
+    // return new THREE.Mesh(geometry, barMaterials[Math.floor(max/4)]);
+    for(let i = 0; i < geometryArray.length; i++) {
+	if (geometryArray[i].vertices.length > 0) {
+	    group.add(
+		new THREE.Mesh(geometryArray[i], this.barMaterials[i])
+	    );
+	}
+	// geometryArray[i].dispose();
+    }
+    return group;
+}
+Renderer.barRenderer.skipMaterialChange = true;
+
+Renderer.renderers.push(Renderer.barRenderer);
+
+//////
+// sine wave
+
+Renderer.waveRenderer = new LineRenderer("wave","Sine Wave");
+
+Renderer.waveRenderer.getBufferLength = function() {
+    return this.app.analyser.fftSize;
+}
+
+Renderer.waveRenderer.prepare = function() {
+    Object.getPrototypeOf(this).prepare.call(this);
+    this.maxDrawFreq = this.bufferLength;
+}
+
+Renderer.waveRenderer.getData = function(dataArray) {
+    this.app.analyser.getByteTimeDomainData(dataArray);
+}
+
+Renderer.waveRenderer.changeX = undefined
+
+Renderer.renderers.push(Renderer.waveRenderer);
 
 
 //////////////////////////////////////////////////////
