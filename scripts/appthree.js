@@ -151,9 +151,8 @@ app.prepareRender = function() {
     this.height = height;
 
 
-    // distance between each frame
-    let zStep = -2;
-    this.zStep = zStep;
+    // let zStep = -2;
+    // this.zStep = zStep;
 
     // webGLRenderer
 
@@ -184,11 +183,9 @@ app.prepareRender = function() {
 	stopRenderer.cameraControl = undefined;
 	self.registerRenderer(stopRenderer);
     }
+
     /////////////////////////////////////////////////////
     // camera control
-    
-    // self.currentRenderer = self.currentRenderer || lineRenderer;
-    // self.currentRenderer.cameraControl.set(camera);
     
     document.addEventListener('keydown', function(event) {
 	let code = event.code;
@@ -318,6 +315,9 @@ Renderer.renderers = [];
 function LineRenderer(id, desc) {
     this.base = Renderer;
     this.base(id, desc);
+
+    // distance between each frame
+    this.zStep = -2;
 }
 
 LineRenderer.prototype = new Renderer;
@@ -378,7 +378,7 @@ LineRenderer.prototype.begin = function(app) {
 }
 
 LineRenderer.prototype.getBufferLength = function() {
-    return this.app.analyser.frequencyBinCount;
+    return this.analyser.frequencyBinCount;
 }
 
 LineRenderer.prototype.prepare = function() {
@@ -387,8 +387,18 @@ LineRenderer.prototype.prepare = function() {
     this.scene = new THREE.Scene();
     
     let analyser = app.analyser;
-    let nShapes = app.nShapes;
+    this.analyser = analyser;
 
+    this.webGLRenderer = app.webGLRenderer;
+    this.camera = app.camera;
+
+    let nShapes = app.nShapes;
+    this.nShapes = nShapes;
+    
+    this.width = app.width;
+    this.height = app.height;
+    this.maxShowingFrequency = app.maxShowingFrequency;
+    
     // let bufferLength = analyser.frequencyBinCount;
 
     let bufferLength = this.getBufferLength();
@@ -401,14 +411,14 @@ LineRenderer.prototype.prepare = function() {
     
     this.objectArray = new Array(nShapes);
     // camera
-    this.cameraControl.set(app.camera);
+    this.cameraControl.set(this.camera);
     
     this.material = this.material || this.makeMaterial(0xffffff);
 
     this.prepareMaterials();
 
     ////////
-    let maxDrawFreq = app.maxShowingFrequency /
+    let maxDrawFreq = this.maxShowingFrequency /
 	(analyser.context.sampleRate / analyser.fftSize);
     maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
     this.maxDrawFreq = maxDrawFreq;
@@ -419,7 +429,7 @@ LineRenderer.prototype.prepare = function() {
 }
 
 LineRenderer.prototype.prepareMaterials = function() {
-    let nShapes = this.app.nShapes;
+    let nShapes = this.nShapes;
 
     // dispose old oldMaterials
     if (this.oldMaterials) {
@@ -439,7 +449,7 @@ LineRenderer.prototype.prepareMaterials = function() {
 
 LineRenderer.prototype.changeLastMaterial = function() {
     let self = this;
-    let nShapes = self.app.nShapes;
+    let nShapes = self.nShapes;
     let prevObj = self.objectArray[(self.arrayIdx + nShapes -1) % nShapes];
     if (prevObj) {
       	prevObj.material = self.oldMaterials[self.arrayIdx];
@@ -447,7 +457,7 @@ LineRenderer.prototype.changeLastMaterial = function() {
 }
 
 LineRenderer.prototype.getData = function(dataArray) {
-    this.app.analyser.getByteFrequencyData(dataArray);    
+    this.analyser.getByteFrequencyData(dataArray);    
 }
 
 LineRenderer.prototype.changeX = function(x, xFactor) {
@@ -455,17 +465,20 @@ LineRenderer.prototype.changeX = function(x, xFactor) {
 }
 
 LineRenderer.prototype.draw = function (self) {
-    let app = self.app;
+    // let app = self.app;
     
-    let analyser = app.analyser;
-    let nShapes = app.nShapes;
+    let analyser = self.analyser;
+    let nShapes = self.nShapes;
     let scene = self.scene;
 
     let bufferLength = self.bufferLength;
     let dataArray = self.dataArray;
     let objectArray = self.objectArray;
     let material = self.material;
-    
+
+    let maxDrawFreq = self.maxDrawFreq;
+    let width = self.width;
+
 
     {
 	// remove old object
@@ -477,7 +490,7 @@ LineRenderer.prototype.draw = function (self) {
 	// move objects backward
 	scene.children.forEach(function(obj) {
 	    if(scene.id != obj.id) {
-		obj.translateZ(app.zStep);
+		obj.translateZ(self.zStep);
 	    }
 	});
 	// change material of last object
@@ -488,10 +501,7 @@ LineRenderer.prototype.draw = function (self) {
 
     self.getData(dataArray);
     
-
-    let maxDrawFreq = self.maxDrawFreq;
-    
-    let unitWidth = (app.width / maxDrawFreq);
+    let unitWidth = (width / maxDrawFreq);
     
     let vectorArray = new Array();
 
@@ -505,7 +515,7 @@ LineRenderer.prototype.draw = function (self) {
 	let maxLy = 0;
 	let cnt = 0;
 
-	let lxFactor = app.width / Math.log(app.width);
+	let lxFactor = width / Math.log(width);
 	
 	for(let i = 0; i < maxDrawFreq; i++) {
 	    let y = dataArray[i];
@@ -545,7 +555,7 @@ LineRenderer.prototype.draw = function (self) {
 	    scene.add(obj);
 	}
     }
-    app.webGLRenderer.render(scene, app.camera);
+    self.webGLRenderer.render(scene, app.camera);
 
     self.prevVectorArry = vectorArray;
     self.arrayIdx = (self.arrayIdx + 1) % nShapes;
@@ -608,12 +618,12 @@ Renderer.renderers.push(Renderer.frontmeshRenderer);
 Renderer.upmeshRenderer = new MeshRenderer("upmesh", "Up Mesh");
 
 Renderer.upmeshRenderer.makeObject =
-    function(prevVectorArry, vectorArray, material, app)
+    function(prevVectorArry, vectorArray, material)
 {
     if (prevVectorArry) {
 	let geometry = new THREE.Geometry();
 	for(let i = 0; i < vectorArray.length; i++) {
-	    prevVectorArry[i].z = this.app.zStep;
+	    prevVectorArry[i].z = this.zStep;
 	    geometry.vertices.push(vectorArray[i]);
 	    geometry.vertices.push(prevVectorArry[i]);
 	    if (i>0) {
@@ -719,8 +729,10 @@ Renderer.renderers.push(Renderer.barRenderer);
 
 Renderer.waveRenderer = new LineRenderer("wave","Sine Wave");
 
+Renderer.waveRenderer.zStep = -6;
+
 Renderer.waveRenderer.getBufferLength = function() {
-    return this.app.analyser.fftSize;
+    return this.analyser.fftSize;
 }
 
 Renderer.waveRenderer.prepare = function() {
@@ -729,7 +741,7 @@ Renderer.waveRenderer.prepare = function() {
 }
 
 Renderer.waveRenderer.getData = function(dataArray) {
-    this.app.analyser.getByteTimeDomainData(dataArray);
+    this.analyser.getByteTimeDomainData(dataArray);
 }
 
 Renderer.waveRenderer.changeX = undefined
