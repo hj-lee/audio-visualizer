@@ -314,14 +314,15 @@ Renderer.renderers = [];
 // Line Renderer
 
 function LineRenderer(id, desc) {
-    this.base = Renderer;
-    this.base(id, desc);
-
-    // distance between each frame
-    this.zStep = -2;
+    let base = Renderer
+    base.call(this, id, desc);
+    this.base = base;
 }
 
 LineRenderer.prototype = new Renderer;
+
+// distance between each frame
+LineRenderer.prototype.zStep = -2;
 
 LineRenderer.prototype.cleanUp = function() {
     // dispose scene objects
@@ -473,6 +474,47 @@ LineRenderer.prototype.changeX = function(x) {
     return Math.log(1+x) * this.lxFactor
 }
 
+LineRenderer.prototype.drawLoop
+    = function(dataArray, vectorArray, maxDrawFreq, unitWidth)
+{
+    let self = this;
+    let x = 0;
+    // let geometry = new THREE.Geometry();
+	
+    // lx closeness check
+    let preLx = -100;
+    let maxLy = -1000;
+    let cnt = 0;
+
+    for(let i = 0; i < maxDrawFreq; i++) {
+	let y = (self.getY) ? (self.getY(i)) : dataArray[i];
+	let z = (self.getZ) ? (self.getZ(i)) : 0;
+	
+	let lx = x;
+	let ly = y;
+	let lz = z;
+	
+	if (self.changeX) lx = self.changeX(x);
+	if (self.changeY) ly = self.changeY(y);
+	if (self.changeZ) lz = self.changeZ(z);
+	
+	// skip close log(1+x) positions, pick max y
+	if (lx - preLx >= 1.0) {
+	    vectorArray.push(
+		new THREE.Vector3(lx, ly, lz)
+	    );
+	    
+	    preLx = lx;
+	    cnt = 0;
+	    maxLy = -1000;
+	} else {
+	    cnt++;
+	    maxLy = Math.max(maxLy, ly);
+	}
+	x += unitWidth;
+    }
+}    
+
 LineRenderer.prototype.draw = function (self) {
     // let app = self.app;
     
@@ -515,39 +557,7 @@ LineRenderer.prototype.draw = function (self) {
     let vectorArray = new Array();
 
     {
-	let x = 0;
-
-	// let geometry = new THREE.Geometry();
-	
-	// lx closeness check
-	let preLx = -100;
-	let maxLy = -1000;
-	let cnt = 0;
-	
-	for(let i = 0; i < maxDrawFreq; i++) {
-	    let y = dataArray[i];
-	    
-	    let lx = x;
-	    let ly = y;
-	    
-	    if (self.changeX) lx = self.changeX(x);
-	    if (self.changeY) ly = self.changeY(y);
-	    
-	    // skip close log(1+x) positions, pick max y
-	    if (lx - preLx >= 1.0) {
-		vectorArray.push(
-		    new THREE.Vector3(lx, Math.max(maxLy,ly), 0)
-		);
-		
-		preLx = lx;
-		cnt = 0;
-		maxLy = -1000;
-	    } else {
-		cnt++;
-		maxLy = Math.max(maxLy, ly);
-	    }
-	    x += unitWidth;
-	}
+	self.drawLoop(dataArray, vectorArray, maxDrawFreq, unitWidth);
 	let obj = self.makeObject(
 	    self.data.prevVectorArry,
 	    vectorArray,
@@ -558,6 +568,7 @@ LineRenderer.prototype.draw = function (self) {
 	    scene.add(obj);
 	}
     }
+    
     self.webGLRenderer.render(scene, app.camera);
 
     self.data.prevVectorArry = vectorArray;
@@ -573,8 +584,9 @@ Renderer.renderers.push(Renderer.lineRenderer);
 // MeshRenderer
 
 function MeshRenderer(id, desc) {
-    this.base = LineRenderer;
-    this.base(id, desc);
+    let base = LineRenderer;
+    base.call(this, id, desc);
+    this.base = base;
 }
 
 MeshRenderer.prototype = new LineRenderer;
@@ -728,40 +740,169 @@ Renderer.barRenderer.skipMaterialChange = true;
 Renderer.renderers.push(Renderer.barRenderer);
 
 //////
-// sine wave
+// WaveRenderer
 
-Renderer.waveRenderer = new LineRenderer("wave","Sine Wave");
+function WaveRenderer(id, desc) {
+    let base = LineRenderer;
+    base.call(this, id, desc);
+    this.base = base;
+}
 
-Renderer.waveRenderer.zStep = -10;
+WaveRenderer.prototype = new LineRenderer;
 
-Renderer.waveRenderer.setCameraPOI = function() {
+WaveRenderer.prototype.zStep = -10;
+
+WaveRenderer.prototype.setCameraPOI = function() {
     this.cameraControl.poi
 	= new THREE.Vector3(this.width/2, 0, -50);
 }
 
-Renderer.waveRenderer.getBufferLength = function() {
+WaveRenderer.prototype.getBufferLength = function() {
     return this.analyser.fftSize;
 }
 
-Renderer.waveRenderer.prepare = function() {
-    Object.getPrototypeOf(this).prepare.call(this);
+WaveRenderer.prototype.prepare = function() {
+    this.base.prototype.prepare.call(this);
     this.maxDrawFreq = this.bufferLength;
 }
 
-Renderer.waveRenderer.getData = function(dataArray) {
+WaveRenderer.prototype.getData = function(dataArray) {
     this.analyser.getByteTimeDomainData(dataArray);
 }
 
-Renderer.waveRenderer.changeX = undefined
+WaveRenderer.prototype.changeX = undefined
 
-Renderer.waveRenderer.changeY = function(y) {
+WaveRenderer.prototype.changeY = function(y) {
     return (y-127.5)*(this.height/256);
 }
+
+Renderer.waveRenderer = new WaveRenderer("wave","Sine Wave");
 
 Renderer.renderers.push(Renderer.waveRenderer);
 
 
 //////////////////////////////////////////////////////
+// KissFFTRenderer
+
+function KissFFTRenderer(id, desc) {
+    let base = WaveRenderer;
+    base.call(this, id, desc);
+    this.base = base;
+}
+
+KissFFTRenderer.prototype = new WaveRenderer;
+
+// KissFFTRenderer.prototype.zStep = -2;
+
+KissFFTRenderer.prototype.prepare = function() {
+    // no need to reset maxDrawFreq
+    LineRenderer.prototype.prepare.call(this);
+
+    let fftSize = this.analyser.fftSize;
+    this.data.floatData = new Float32Array(fftSize);
+    this.data.fftproc = new KissFFT(fftSize);
+    this.normalizeFactor = this.height / 10 / Math.sqrt(fftSize);
+
+    this.material3 = new Array(3);
+    let material3 = this.material3;
+    material3[0] = this.makeMaterial(0xffffff);
+    material3[1] = this.makeMaterial(0x00ff00);
+    material3[2] = this.makeMaterial(0x0000ff);
+}
+
+KissFFTRenderer.prototype.cleanUp = function() {
+    disposeMaterials(this.material3);
+    this.material3 = undefined;
+    
+    this.base.prototype.cleanUp.call(this);
+}
+
+KissFFTRenderer.prototype.getData = function(dataArray) {
+    // get time domain data
+    this.base.prototype.getData.call(this, dataArray);
+    let size = this.bufferLength;
+    let input = this.data.floatData;
+    for (let i = 0; i < size; i++) {
+	input[i] = (dataArray[i]-127.5);
+	// if (Math.abs(input[i]) < 0.6) input[i] = 0;
+	input[i] /= 256.0;
+    }
+    this.data.out = this.data.fftproc.forward(input);
+}
+
+KissFFTRenderer.prototype.getY = function(i) {
+    return this.data.out[i*2];
+}
+KissFFTRenderer.prototype.getZ = function(i) {
+    return this.data.out[i*2+1];
+}
+
+KissFFTRenderer.prototype.changeX = LineRenderer.prototype.changeX;
+KissFFTRenderer.prototype.changeY = undefined;
+
+// KissFFTRenderer.prototype.changeLastMaterial = function() {
+//     let self = this;
+//     let nShapes = self.nShapes;
+//     let prevObj = self.data.objectArray[(self.arrayIdx + nShapes -1) % nShapes];
+//     if (prevObj) {
+//       	// prevObj.material = self.oldMaterials[self.arrayIdx];
+// 	prevObj.traverse(function(o) {
+// 	    o.material = self.oldMaterials[self.arrayIdx];
+// 	});
+//     }
+// }
+
+KissFFTRenderer.prototype.changeLastMaterial = undefined; 
+
+KissFFTRenderer.prototype.zStep = -30;
+
+KissFFTRenderer.prototype.makeObject =
+    function(prevVectorArry, vectorArray, material)
+{
+    let nlines = 3;
+    let group = new THREE.Group();
+    let geos = new Array(nlines);
+    for(let i = 0; i < nlines; i++) {
+	geos[i] = new THREE.Geometry();
+    }
+
+    function log1p(v) {
+	// return v;
+	return Math.sign(v) * Math.log(1+Math.abs(v)) * 20;
+    }
+
+    for(let i = 0; i < vectorArray.length; i++) {
+	let vertex = vectorArray[i];
+	let x = vertex.x;
+	let y = vertex.y;
+	let z = vertex.z;
+	
+	let abs = Math.sqrt(y*y + z*z);
+
+	let yarr = new Array(nlines);
+	yarr[0] = log1p(abs);
+	yarr[1] = log1p(y);
+	yarr[2] = log1p(z);
+
+	for(let j = 0; j < nlines; j++) {
+	    geos[j].vertices.push(
+		new THREE.Vector3(x, yarr[j], 0)
+	    );
+	}
+    }
+
+    for(let i = 0; i < nlines; i++) {
+	let line = new THREE.Line(geos[i], this.material3[i]);
+	group.add(line);
+    }
+    return group;
+}
+
+
+Renderer.cmpxRenderer = new KissFFTRenderer("kissline", "Line(Complex)");
+
+
+Renderer.renderers.push(Renderer.cmpxRenderer);
 
 
 // })();
