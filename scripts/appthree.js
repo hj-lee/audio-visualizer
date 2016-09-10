@@ -71,8 +71,6 @@ function disposeMaterials(materials) {
 }
 
 
-
-
 ////////////////////////////////////////////////
 // The 'app' object
 
@@ -159,11 +157,7 @@ app.prepareRender = function() {
     this.height = height;
 
 
-    // let zStep = -2;
-    // this.zStep = zStep;
-
     // webGLRenderer
-
     let webGLRenderer = new THREE.WebGLRenderer();
     this.webGLRenderer = webGLRenderer;
     
@@ -171,7 +165,6 @@ app.prepareRender = function() {
     document.getElementById('three').appendChild(webGLRenderer.domElement);
 
     // camera
-
     let camera = new THREE.PerspectiveCamera(15, width / height, 1, width * 3);
     this.camera = camera;
 
@@ -180,7 +173,6 @@ app.prepareRender = function() {
     let styleRenderers = {}
 
     this.styleRenderers = styleRenderers;
-    
 
     ////////
     {
@@ -229,7 +221,7 @@ app.prepareRender = function() {
 
     $("#smoothing").change(function(e) {
 	let smoothing = Number($("#smoothing").val());
-	app.analyser.smoothingTimeConstant = smoothing;
+	self.analyser.smoothingTimeConstant = smoothing;
     });
 
 }
@@ -270,6 +262,11 @@ function CameraControl(poi, distance, angleX, angleY) {
 }
 
 CameraControl.prototype.set = function(camera) {
+    if (this.angleX > this.maxAngleX) this.angleX = this.maxAngleX;
+    if (this.angleX < this.minAngleX) this.angleX = this.minAngleX;
+    if (this.angleY > this.maxAngleY) this.angleY = this.maxAngleY;
+    if (this.angleY < this.minAngleY) this.angleY = this.minAngleY;
+    
     camera.position.x = this.poi.x +
 	this.distance * Math.sin(this.angleY);
     camera.position.y = this.poi.y +
@@ -283,22 +280,18 @@ CameraControl.prototype.set = function(camera) {
 
 CameraControl.prototype.up = function(camera) {
     this.angleX += this.angleStep;
-    if (this.angleX > this.maxAngleX) this.angleX = this.maxAngleX;
     this.set(camera);
 }
 CameraControl.prototype.down = function(camera) {
     this.angleX -= this.angleStep;
-    if (this.angleX < this.minAngleX) this.angleX = this.minAngleX;
     this.set(camera);
 }
 CameraControl.prototype.right = function(camera) {
     this.angleY += this.angleStep;
-    if (this.angleY > this.maxAngleY) this.angleY = this.maxAngleY;
     this.set(camera);
 }
 CameraControl.prototype.left = function(camera) {
     this.angleY -= this.angleStep;
-    if (this.angleY < this.minAngleY) this.angleY = this.minAngleY;
     this.set(camera);
 }
 
@@ -350,7 +343,7 @@ LineRenderer.prototype.cleanUp = function() {
 LineRenderer.prototype.makeMaterial = function(color) {
     return new THREE.LineBasicMaterial({
 	color: color
-    });  
+    });
 }
 
 
@@ -507,7 +500,7 @@ LineRenderer.prototype.draw = function (self) {
 	    }
 	});
 	// change material of last object
-	self.changeLastMaterial();
+	if (self.changeLastMaterial) self.changeLastMaterial();
     }
 
     // analyser.getByteFrequencyData(dataArray);
@@ -530,10 +523,6 @@ LineRenderer.prototype.draw = function (self) {
 	
 	for(let i = 0; i < maxDrawFreq; i++) {
 	    let y = dataArray[i];
-
-	    
-	    // lx = Math.log(1+x) * lxFactor;
-	    // // ly = Math.log(1+barHeight) * 35;
 	    
 	    let lx = x;
 	    let ly = y;
@@ -674,7 +663,7 @@ Renderer.barRenderer.prepareMaterials = function() {
     }
 }
 
-Renderer.barRenderer.changeLastMaterial = function() { }
+Renderer.barRenderer.changeLastMaterial = undefined
 
 Renderer.barRenderer.cleanUp = function() {
     Object.getPrototypeOf(this).cleanUp.call(this);
