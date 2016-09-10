@@ -174,146 +174,21 @@ app.prepareRender = function() {
 
     this.styleRenderers = styleRenderers;
     
-    // line
 
-    let lineRenderer = new LineRenderer("line", "Line");
-    self.registerRenderer(lineRenderer, true);
-    
-    
-    // frontmesh
-
-    let frontmeshRenderer = new MeshRenderer("frontmesh", "Front Mesh");
-
-    frontmeshRenderer.makeObject =
-	function(prevVectorArry, vectorArray, material)
-    {
-	let geometry = new THREE.Geometry();
-	for(let i = 0; i < vectorArray.length; i++) {
-	    let vertex = vectorArray[i];
-	    geometry.vertices.push(
-		new THREE.Vector3(vertex.x, 0, 0)
-	    );
-	    vertex.y += 2;
-	    geometry.vertices.push(vertex);
-	    if (i>0) {
-		geometry.faces.push(
-		    new THREE.Face3(i*2, i*2-1, i*2-2)
-		);
-		geometry.faces.push(
-		    new THREE.Face3(i*2+1, i*2-1, i*2)
-		);
-	    }
-	}
-	return new THREE.Mesh(geometry, material);
-    }
-    self.registerRenderer(frontmeshRenderer);
-
-    
-    // upmesh
-
-    let upmeshRenderer = new MeshRenderer("upmesh", "Up Mesh");
-
-    upmeshRenderer.makeObject =
-	function(prevVectorArry, vectorArray, material)
-    {
-	if (prevVectorArry) {
-	    let geometry = new THREE.Geometry();
-	    for(let i = 0; i < vectorArray.length; i++) {
-		prevVectorArry[i].z = zStep;
-		geometry.vertices.push(vectorArray[i]);
-		geometry.vertices.push(prevVectorArry[i]);
-		if (i>0) {
-		    geometry.faces.push(
-			new THREE.Face3(i*2, i*2-1, i*2-2)
-		    );
-		    geometry.faces.push(
-			new THREE.Face3(i*2+1, i*2-1, i*2)
-		    );
-		}
-	    }
-	    return new THREE.Mesh(geometry, material);
-	}
-    }
-
-    self.registerRenderer(upmeshRenderer);
-
-    // bar
-    
-    let barMaterials = new Array(256/4);
-    for(let i = 0; i < barMaterials.length; i++) {
-	let base = 80 * 256;
-	if (i%2 == 0) base = 80;
-	let c = i * 4 * 256 * 256 + base;
-	// let c = (120 + i * 2) *(1+256+256*256);
-	barMaterials[i] = new THREE.MeshBasicMaterial({
-	    color: c
-	});
-    }
-
-    let barRenderer = new MeshRenderer("bar", "Bar");
-
-    barRenderer.makeObject =
-	function(prevVectorArry, vectorArray, material)
-    {
-	let geometryArray = new Array(256/4);
-	for(let i = 0; i < geometryArray.length; i++) {
-	    geometryArray[i] = new THREE.Geometry();
-	}
-	let group = new THREE.Group();
-	let max = 0;
-	for(let i = 0; i < vectorArray.length-1; i++) {
-	    let vertex = vectorArray[i];
-	    let nextVertex = vectorArray[i+1];
-
-	    let idx = Math.floor(vertex.y/4);
-	    idx = Math.min(idx, geometryArray.length-1);
-
-	    vertex.y += 2;
-	    
-	    geometryArray[idx].vertices.push(
-		new THREE.Vector3(vertex.x, 0, 0)
-	    );
-	    geometryArray[idx].vertices.push(vertex);
-	    geometryArray[idx].vertices.push(
-		new THREE.Vector3(nextVertex.x, 0, 0)
-	    );
-	    geometryArray[idx].vertices.push(
-		new THREE.Vector3(nextVertex.x, vertex.y, 0)
-	    );
-	    
-	    let i4 = geometryArray[idx].vertices.length - 4;
-	    geometryArray[idx].faces.push(
-		new THREE.Face3(i4+2, i4+1, i4+0)
-	    );
-	    geometryArray[idx].faces.push(
-		new THREE.Face3(i4+3, i4+1, i4+2)
-	    );
-	}
-	// if (max > 255) max = 255;
-	// return new THREE.Mesh(geometry, barMaterials[Math.floor(max/4)]);
-	for(let i = 0; i < geometryArray.length; i++) {
-	    if (geometryArray[i].vertices.length > 0) {
-		group.add(new THREE.Mesh(geometryArray[i], barMaterials[i]));
-	    }
-	    // geometryArray[i].dispose();
-	}
-	return group;
-    }
-    barRenderer.skipMaterialChange = true;
-    
-    self.registerRenderer(barRenderer);
-    
     ////////
-
-    let stopRenderer = new Renderer("stop", "Stop");
-    stopRenderer.cameraControl = undefined;
-    self.registerRenderer(stopRenderer);
-
+    {
+	Renderer.renderers.forEach(function(r) {
+	    self.registerRenderer(r);
+	});
+	let stopRenderer = new Renderer("stop", "Stop");
+	stopRenderer.cameraControl = undefined;
+	self.registerRenderer(stopRenderer);
+    }
     /////////////////////////////////////////////////////
     // camera control
     
-    self.currentRenderer = self.currentRenderer || lineRenderer;
-    self.currentRenderer.cameraControl.set(camera);
+    // self.currentRenderer = self.currentRenderer || lineRenderer;
+    // self.currentRenderer.cameraControl.set(camera);
     
     document.addEventListener('keydown', function(event) {
 	let code = event.code;
@@ -438,7 +313,11 @@ Renderer.prototype.cameraControl = new CameraControl;
 
 Renderer.prototype.begin = function() { }
 
+Renderer.renderers = [];
+
+////////////////////
 // Line Renderer
+
 function LineRenderer(id, desc) {
     this.base = Renderer;
     this.base(id, desc);
@@ -460,7 +339,169 @@ LineRenderer.prototype.makeObject =
     return new THREE.Line(geometry, material);
 }
 
+///////////////
+// LineRenderer begin
 
+LineRenderer.prototype.begin = function(app) {
+    let self = this;
+    this.app = app;
+    this.prepare();
+    
+    // requestAnimationFrame requires function
+    // this of lineRenderer.draw() is not a LineRenderer.
+    function draw() {
+	app.drawVisual = requestAnimationFrame(draw);
+	self.draw(self);
+    }
+    draw();
+}
+
+
+LineRenderer.prototype.prepare = function() {
+    let app = this.app;
+
+    app.scene = new THREE.Scene();
+    let scene = app.scene;
+    
+    let analyser = app.analyser;
+    let nShapes = app.nShapes;
+
+    let bufferLength = analyser.frequencyBinCount;
+    this.bufferLength = bufferLength;
+
+    this.dataArray = new Uint8Array(bufferLength);  
+
+    this.objectArray = new Array(nShapes);
+
+    // camera
+    this.cameraControl.set(app.camera);
+    
+    this.material = this.makeMaterial(0xffffff);
+
+    // dispose old oldMaterials
+    if (this.oldMaterials) {
+	this.oldMaterials.forEach(function(m) { if(m.dispose) m.dispose(); });
+    }
+
+    // rebuild oldMaterials
+    this.oldMaterials = new Array(nShapes);
+    for(let i = 0; i < nShapes; i++) {
+	let addColor = Math.floor(256 * (i/nShapes));
+	if (i % 2 == 0)
+	    addColor = Math.floor(256 * 256 * 256 * ((nShapes-i)/nShapes));
+	let c = 256 * 125 + addColor;
+	this.oldMaterials[i] = this.makeMaterial(c);
+    }
+
+    // draw() sets
+    this.arrayIdx = 0;
+    
+}
+
+LineRenderer.prototype.draw = function draw(self) {
+    let app = self.app;
+    
+    let analyser = app.analyser;
+    let nShapes = app.nShapes;
+    let scene = app.scene;
+
+    let bufferLength = self.bufferLength;
+    let dataArray = self.dataArray;
+    let objectArray = self.objectArray;
+    let material = self.material;
+    
+
+    {
+	// remove old object
+	let oldObj = objectArray[(self.arrayIdx + 1)%nShapes];
+	if (oldObj) {
+	    scene.remove(oldObj);
+	    deepDispose(oldObj);
+	}
+	// move objects backward
+	scene.children.forEach(function(obj) {
+	    if(scene.id != obj.id) {
+		obj.translateZ(app.zStep);
+	    }
+	});
+	// change material of last object
+	if (!self.skipMaterialChange) {
+      	    let prevObj = objectArray[(self.arrayIdx + nShapes -1) % nShapes];
+      	    if (prevObj) {
+      		prevObj.material = self.oldMaterials[self.arrayIdx];
+      	    }
+	}
+    }
+
+    analyser.getByteFrequencyData(dataArray);
+
+    let maxDrawFreq = app.maxShowingFrequency /
+	(analyser.context.sampleRate / analyser.fftSize);
+    maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
+    
+    let unitWidth = (app.width / maxDrawFreq);
+    
+    let vectorArray = new Array();
+
+    {
+	let x = 0;
+
+	// let geometry = new THREE.Geometry();
+	
+	// lx closeness check
+	let preLx = -100;
+	let maxLy = 0;
+	let cnt = 0;
+
+	let lxFactor = app.width / Math.log(app.width);
+	
+	for(let i = 0; i < maxDrawFreq; i++) {
+	    let y = dataArray[i];
+
+	    let lx = x;
+	    let ly = y;
+
+	    lx = Math.log(1+x) * lxFactor;
+	    // ly = Math.log(1+barHeight) * 35;
+
+	    // skip close log(1+x) positions, pick max y
+	    if (lx - preLx >= 1.0) {
+		vectorArray.push(
+		    new THREE.Vector3(lx, Math.max(maxLy,ly), 0)
+		);
+		
+		preLx = lx;
+		cnt = 0;
+		maxLy = 0;
+	    } else {
+		cnt++;
+		maxLy = Math.max(maxLy, ly);
+	    }
+	    
+	    x += unitWidth;
+	}
+	let obj = self.makeObject(
+	    self.prevVectorArry,
+	    vectorArray,
+	    material
+	);
+	if (obj) {
+	    objectArray[self.arrayIdx] = obj;
+	    scene.add(obj);
+	}
+    }
+    app.webGLRenderer.render(scene, app.camera);
+
+    self.prevVectorArry = vectorArray;
+    self.arrayIdx = (self.arrayIdx + 1) % nShapes;
+    
+}
+
+
+Renderer.lineRenderer = new LineRenderer("line", "Line");
+Renderer.renderers.push(Renderer.lineRenderer);
+
+//////////////////
 // MeshRenderer
 
 function MeshRenderer(id, desc) {
@@ -476,138 +517,133 @@ MeshRenderer.prototype.makeMaterial = function(color) {
     });  
 }
 
-// LineRenderer begin
+/////////////////
 
-LineRenderer.prototype.begin = function(app) {
-    let self = this;
 
-    let analyser = app.analyser;
-    let nShapes = app.nShapes;
+Renderer.frontmeshRenderer =
+    new MeshRenderer("frontmesh", "Front Mesh");
 
-    app.scene = new THREE.Scene();
-    let scene = app.scene;
-    
-    let bufferLength = analyser.frequencyBinCount;
-    console.log(bufferLength);
-
-    let dataArray = new Uint8Array(bufferLength);  
-
-    let objectArray = new Array(nShapes);
-    
-    
-    let material;
-    material = self.makeMaterial(0xffffff);
-
-    // dispose old oldMaterials
-    if (self.oldMaterials) {
-	self.oldMaterials.forEach(function(m) { if(m.dispose) m.dispose(); });
-    }
-
-    // rebuild oldMaterials
-    self.oldMaterials = new Array(nShapes);
-    for(let i = 0; i < nShapes; i++) {
-	let addColor = Math.floor(256 * (i/nShapes));
-	if (i % 2 == 0)
-	    addColor = Math.floor(256 * 256 * 256 * ((nShapes-i)/nShapes));
-	let c = 256 * 125 + addColor;
-	self.oldMaterials[i] = self.makeMaterial(c);
-    }
-
-    // draw() sets
-    let arrayIdx = 0;
-    let prevVectorArry;
-
-    function draw() {
-	app.drawVisual = requestAnimationFrame(draw);
-
-	{
-	    // remove old object
-	    let oldObj = objectArray[(arrayIdx + 1)%nShapes];
-	    if (oldObj) {
-		scene.remove(oldObj);
-		deepDispose(oldObj);
-	    }
-	    // move objects backward
-	    scene.children.forEach(function(obj) {
-		if(scene.id != obj.id) {
-		    obj.translateZ(app.zStep);
-		}
-	    });
-	    // change material of last object
-	    if (!self.skipMaterialChange) {
-      		let prevObj = objectArray[(arrayIdx + nShapes -1) % nShapes];
-      		if (prevObj) {
-      		    prevObj.material = self.oldMaterials[arrayIdx];
-      		}
-	    }
-	}
-	
-	analyser.getByteFrequencyData(dataArray);
-
-	let maxDrawFreq = app.maxShowingFrequency /
-	    (analyser.context.sampleRate / analyser.fftSize);
-	maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
-	
-	let unitWidth = (app.width / maxDrawFreq);
-	
-	let vectorArray = new Array();
-
-	{
-	    let x = 0;
-
-	    // let geometry = new THREE.Geometry();
-	    
-	    // lx closeness check
-	    let preLx = -100;
-	    let maxLy = 0;
-	    let cnt = 0;
-
-	    let lxFactor = app.width / Math.log(app.width);
-	    
-	    for(let i = 0; i < maxDrawFreq; i++) {
-		let y = dataArray[i];
-
-		let lx = x;
-		let ly = y;
-
-		lx = Math.log(1+x) * lxFactor;
-		// ly = Math.log(1+barHeight) * 35;
-
-		// skip close log(1+x) positions, pick max y
-		if (lx - preLx >= 1.0) {
-		    vectorArray.push(
-			new THREE.Vector3(lx, Math.max(maxLy,ly), 0)
-		    );
-		    
-		    preLx = lx;
-		    cnt = 0;
-		    maxLy = 0;
-		} else {
-		    cnt++;
-		    maxLy = Math.max(maxLy, ly);
-		}
-		
-		x += unitWidth;
-	    }
-	    let obj = self.makeObject(
-		prevVectorArry,
-		vectorArray,
-		material
+Renderer.frontmeshRenderer.makeObject =
+    function(prevVectorArry, vectorArray, material)
+{
+    let geometry = new THREE.Geometry();
+    for(let i = 0; i < vectorArray.length; i++) {
+	let vertex = vectorArray[i];
+	geometry.vertices.push(
+	    new THREE.Vector3(vertex.x, 0, 0)
+	);
+	vertex.y += 2;
+	geometry.vertices.push(vertex);
+	if (i>0) {
+	    geometry.faces.push(
+		new THREE.Face3(i*2, i*2-1, i*2-2)
 	    );
-	    if (obj) {
-		objectArray[arrayIdx] = obj;
-		scene.add(obj);
+	    geometry.faces.push(
+		new THREE.Face3(i*2+1, i*2-1, i*2)
+	    );
+	}
+    }
+    return new THREE.Mesh(geometry, material);
+}
+
+Renderer.renderers.push(Renderer.frontmeshRenderer);
+
+////////////////
+
+Renderer.upmeshRenderer = new MeshRenderer("upmesh", "Up Mesh");
+
+Renderer.upmeshRenderer.makeObject =
+    function(prevVectorArry, vectorArray, material, app)
+{
+    if (prevVectorArry) {
+	let geometry = new THREE.Geometry();
+	for(let i = 0; i < vectorArray.length; i++) {
+	    prevVectorArry[i].z = this.app.zStep;
+	    geometry.vertices.push(vectorArray[i]);
+	    geometry.vertices.push(prevVectorArry[i]);
+	    if (i>0) {
+		geometry.faces.push(
+		    new THREE.Face3(i*2, i*2-1, i*2-2)
+		);
+		geometry.faces.push(
+		    new THREE.Face3(i*2+1, i*2-1, i*2)
+		);
 	    }
 	}
-	app.webGLRenderer.render(scene, app.camera);
-
-	prevVectorArry = vectorArray;
-	arrayIdx = (arrayIdx + 1) % nShapes
-    };
-
-    draw();
-
+	return new THREE.Mesh(geometry, material);
+    }
 }
+
+Renderer.renderers.push(Renderer.upmeshRenderer);
+
+// bar
+
+{
+    let barMaterials = new Array(256/4);
+    for(let i = 0; i < barMaterials.length; i++) {
+	let base = 80 * 256;
+	if (i%2 == 0) base = 80;
+	let c = i * 4 * 256 * 256 + base;
+	// let c = (120 + i * 2) *(1+256+256*256);
+	barMaterials[i] = new THREE.MeshBasicMaterial({
+	    color: c
+	});
+    }
+
+    Renderer.barRenderer = new MeshRenderer("bar", "Bar");
+    
+    Renderer.barRenderer.makeObject =
+	function(prevVectorArry, vectorArray, material)
+    {
+	let geometryArray = new Array(256/4);
+	for(let i = 0; i < geometryArray.length; i++) {
+	    geometryArray[i] = new THREE.Geometry();
+	}
+	let group = new THREE.Group();
+	let max = 0;
+	for(let i = 0; i < vectorArray.length-1; i++) {
+	    let vertex = vectorArray[i];
+	    let nextVertex = vectorArray[i+1];
+
+	    let idx = Math.floor(vertex.y/4);
+	    idx = Math.min(idx, geometryArray.length-1);
+
+	    vertex.y += 2;
+	    
+	    geometryArray[idx].vertices.push(
+		new THREE.Vector3(vertex.x, 0, 0)
+	    );
+	    geometryArray[idx].vertices.push(vertex);
+	    geometryArray[idx].vertices.push(
+		new THREE.Vector3(nextVertex.x, 0, 0)
+	    );
+	    geometryArray[idx].vertices.push(
+		new THREE.Vector3(nextVertex.x, vertex.y, 0)
+	    );
+	    
+	    let i4 = geometryArray[idx].vertices.length - 4;
+	    geometryArray[idx].faces.push(
+		new THREE.Face3(i4+2, i4+1, i4+0)
+	    );
+	    geometryArray[idx].faces.push(
+		new THREE.Face3(i4+3, i4+1, i4+2)
+	    );
+	}
+	// if (max > 255) max = 255;
+	// return new THREE.Mesh(geometry, barMaterials[Math.floor(max/4)]);
+	for(let i = 0; i < geometryArray.length; i++) {
+	    if (geometryArray[i].vertices.length > 0) {
+		group.add(new THREE.Mesh(geometryArray[i], barMaterials[i]));
+	    }
+	    // geometryArray[i].dispose();
+	}
+	return group;
+    }
+    Renderer.barRenderer.skipMaterialChange = true;
+    
+    Renderer.renderers.push(Renderer.barRenderer);
+}
+
 
 //////////////////////////////////////////////////////
 
