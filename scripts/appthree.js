@@ -338,6 +338,8 @@ LineRenderer.prototype.cleanUp = function() {
     // dispose material
     if (this.material) this.material.dispose();
     this.material = undefined;
+
+    this.data = undefined;
 }
 
 LineRenderer.prototype.makeMaterial = function(color) {
@@ -404,13 +406,14 @@ LineRenderer.prototype.prepare = function() {
 
     let bufferLength = this.getBufferLength();
     
-    // no need to reallocate
-    if(this.bufferLength != bufferLength) {
-	this.bufferLength = bufferLength;
-	this.dataArray = new Uint8Array(bufferLength);  
-    }
+    this.bufferLength = bufferLength;
+
+    // for easy clean-up
+    this.data = {};
     
-    this.objectArray = new Array(nShapes);
+    this.data.dataArray = new Uint8Array(bufferLength);  
+    
+    this.data.objectArray = new Array(nShapes);
 
     // camera
     this.setCameraPOI();
@@ -456,7 +459,7 @@ LineRenderer.prototype.prepareMaterials = function() {
 LineRenderer.prototype.changeLastMaterial = function() {
     let self = this;
     let nShapes = self.nShapes;
-    let prevObj = self.objectArray[(self.arrayIdx + nShapes -1) % nShapes];
+    let prevObj = self.data.objectArray[(self.arrayIdx + nShapes -1) % nShapes];
     if (prevObj) {
       	prevObj.material = self.oldMaterials[self.arrayIdx];
     }
@@ -478,8 +481,8 @@ LineRenderer.prototype.draw = function (self) {
     let scene = self.scene;
 
     let bufferLength = self.bufferLength;
-    let dataArray = self.dataArray;
-    let objectArray = self.objectArray;
+    let dataArray = self.data.dataArray;
+    let objectArray = self.data.objectArray;
     let material = self.material;
 
     let maxDrawFreq = self.maxDrawFreq;
@@ -526,7 +529,7 @@ LineRenderer.prototype.draw = function (self) {
 	    
 	    let lx = x;
 	    let ly = y;
-
+	    
 	    if (self.changeX) lx = self.changeX(x);
 	    if (self.changeY) ly = self.changeY(y);
 	    
@@ -543,11 +546,10 @@ LineRenderer.prototype.draw = function (self) {
 		cnt++;
 		maxLy = Math.max(maxLy, ly);
 	    }
-	    
 	    x += unitWidth;
 	}
 	let obj = self.makeObject(
-	    self.prevVectorArry,
+	    self.data.prevVectorArry,
 	    vectorArray,
 	    material
 	);
@@ -558,7 +560,7 @@ LineRenderer.prototype.draw = function (self) {
     }
     self.webGLRenderer.render(scene, app.camera);
 
-    self.prevVectorArry = vectorArray;
+    self.data.prevVectorArry = vectorArray;
     self.arrayIdx = (self.arrayIdx + 1) % nShapes;
     
 }
