@@ -63,6 +63,14 @@ function deepDispose(obj) {
     if (obj.dispose) obj.dispose();
 }
 
+// free materials
+function disposeMaterials(materials) {
+    if (materials) {
+	materials.forEach(function(m) { if(m.dispose) m.dispose(); });
+    }
+}
+
+
 
 
 ////////////////////////////////////////////////
@@ -322,12 +330,6 @@ function LineRenderer(id, desc) {
 
 LineRenderer.prototype = new Renderer;
 
-function disposeMaterials(materials) {
-    if (materials) {
-	materials.forEach(function(m) { if(m.dispose) m.dispose(); });
-    }
-}
-
 LineRenderer.prototype.cleanUp = function() {
     // dispose scene objects
     if (this.scene) {
@@ -381,6 +383,11 @@ LineRenderer.prototype.getBufferLength = function() {
     return this.analyser.frequencyBinCount;
 }
 
+LineRenderer.prototype.setCameraPOI = function() {
+    this.cameraControl.poi
+	= new THREE.Vector3(this.width/2, this.height/3, -150);
+}
+
 LineRenderer.prototype.prepare = function() {
     let app = this.app;
 
@@ -398,6 +405,7 @@ LineRenderer.prototype.prepare = function() {
     this.width = app.width;
     this.height = app.height;
     this.maxShowingFrequency = app.maxShowingFrequency;
+
     
     // let bufferLength = analyser.frequencyBinCount;
 
@@ -410,7 +418,9 @@ LineRenderer.prototype.prepare = function() {
     }
     
     this.objectArray = new Array(nShapes);
+
     // camera
+    this.setCameraPOI();
     this.cameraControl.set(this.camera);
     
     this.material = this.material || this.makeMaterial(0xffffff);
@@ -423,6 +433,9 @@ LineRenderer.prototype.prepare = function() {
     maxDrawFreq = Math.min(maxDrawFreq, bufferLength);
     this.maxDrawFreq = maxDrawFreq;
 
+    this.lxFactor = this.width / Math.log(this.width);
+
+    
     ////////
     // draw() sets
     this.arrayIdx = 0;    
@@ -460,8 +473,8 @@ LineRenderer.prototype.getData = function(dataArray) {
     this.analyser.getByteFrequencyData(dataArray);    
 }
 
-LineRenderer.prototype.changeX = function(x, xFactor) {
-    return Math.log(1+x) * xFactor
+LineRenderer.prototype.changeX = function(x) {
+    return Math.log(1+x) * this.lxFactor
 }
 
 LineRenderer.prototype.draw = function (self) {
@@ -512,10 +525,8 @@ LineRenderer.prototype.draw = function (self) {
 	
 	// lx closeness check
 	let preLx = -100;
-	let maxLy = 0;
+	let maxLy = -1000;
 	let cnt = 0;
-
-	let lxFactor = width / Math.log(width);
 	
 	for(let i = 0; i < maxDrawFreq; i++) {
 	    let y = dataArray[i];
@@ -527,7 +538,8 @@ LineRenderer.prototype.draw = function (self) {
 	    let lx = x;
 	    let ly = y;
 
-	    if (self.changeX) lx = self.changeX(x, lxFactor);
+	    if (self.changeX) lx = self.changeX(x);
+	    if (self.changeY) ly = self.changeY(y);
 	    
 	    // skip close log(1+x) positions, pick max y
 	    if (lx - preLx >= 1.0) {
@@ -537,7 +549,7 @@ LineRenderer.prototype.draw = function (self) {
 		
 		preLx = lx;
 		cnt = 0;
-		maxLy = 0;
+		maxLy = -1000;
 	    } else {
 		cnt++;
 		maxLy = Math.max(maxLy, ly);
@@ -729,7 +741,12 @@ Renderer.renderers.push(Renderer.barRenderer);
 
 Renderer.waveRenderer = new LineRenderer("wave","Sine Wave");
 
-Renderer.waveRenderer.zStep = -6;
+Renderer.waveRenderer.zStep = -10;
+
+Renderer.waveRenderer.setCameraPOI = function() {
+    this.cameraControl.poi
+	= new THREE.Vector3(this.width/2, 0, -50);
+}
 
 Renderer.waveRenderer.getBufferLength = function() {
     return this.analyser.fftSize;
@@ -745,6 +762,10 @@ Renderer.waveRenderer.getData = function(dataArray) {
 }
 
 Renderer.waveRenderer.changeX = undefined
+
+Renderer.waveRenderer.changeY = function(y) {
+    return (y-127.5)*(this.height/256);
+}
 
 Renderer.renderers.push(Renderer.waveRenderer);
 
