@@ -228,13 +228,17 @@ app.prepareRender = function() {
 
 app.visualize = function() {
     let self = this;
-
-    let frameLength = app.analyser.fftSize / app.audioCtx.sampleRate;
-    $("#frameLength").text(frameLength.toFixed(4));
-
+    
     self.analyser.fftSize = Number($("#fftsize").val());  
     self.nShapes = Number($("#nlines").val());
 
+    let frameLength = self.analyser.fftSize / self.audioCtx.sampleRate;
+    $("#frameLength").text(frameLength.toFixed(4));
+
+    let audioFrameRate = 1 / frameLength;
+    $("#audioFrameRate").text(audioFrameRate.toFixed(2));
+    
+    
     let drawStyle = $("#style").val();
 
     self.currentRenderer = self.styleRenderers[drawStyle];
@@ -433,9 +437,12 @@ LineRenderer.prototype.prepare = function() {
     this.lxFactor = this.width / Math.log(this.width);
 
     
+    this.checkFrameRate = 50;
     ////////
     // draw() sets
-    this.arrayIdx = 0;    
+    this.frameCnt = 0;
+    this.prevTime = performance.now();
+    this.arrayIdx = 0;
 }
 
 LineRenderer.prototype.prepareMaterials = function() {
@@ -530,6 +537,14 @@ LineRenderer.prototype.draw = function (self) {
     let maxDrawFreq = self.maxDrawFreq;
     let width = self.width;
 
+    self.frameCnt++;
+    if (self.frameCnt % self.checkFrameRate == 0) {
+	let now = performance.now();
+	let rate = self.checkFrameRate / (now - self.prevTime) * 1e3;
+	$("#frameRate").text(rate.toFixed(2));
+	self.prevTime = now;
+	
+    }
 
     {
 	// remove old object
