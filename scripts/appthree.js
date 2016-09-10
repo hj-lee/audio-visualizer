@@ -150,10 +150,10 @@ app.prepareRender = function() {
     /////////////////////////////////////
     // size
 
-    let width = 800;
+    let width = Math.min(800, $(window).width());
     this.width = width;
     
-    let height = 400;
+    let height = Math.floor(width/2);
     this.height = height;
 
 
@@ -165,7 +165,7 @@ app.prepareRender = function() {
     document.getElementById('three').appendChild(webGLRenderer.domElement);
 
     // camera
-    let camera = new THREE.PerspectiveCamera(15, width / height, 1, width * 3);
+    let camera = new THREE.PerspectiveCamera(15, width / height, 1, width * 15);
     this.camera = camera;
 
     // styleRenderers
@@ -230,7 +230,7 @@ app.visualize = function() {
     let self = this;
     
     self.analyser.fftSize = Number($("#fftsize").val());  
-    self.nShapes = Number($("#nlines").val());
+    self.nShapes = Number($("#nlines").val())+1;
 
     let frameLength = self.analyser.fftSize / self.audioCtx.sampleRate;
     $("#frameLength").text(frameLength.toFixed(4));
@@ -385,7 +385,8 @@ LineRenderer.prototype.getBufferLength = function() {
 
 LineRenderer.prototype.setCameraPOI = function() {
     this.cameraControl.poi
-	= new THREE.Vector3(this.width/2, this.height/3, -150);
+	= new THREE.Vector3(this.width/2, this.height/3, -50);
+    this.cameraControl.distance = 2.1 * this.width;
 }
 
 LineRenderer.prototype.prepare = function() {
@@ -770,6 +771,7 @@ WaveRenderer.prototype.zStep = -10;
 WaveRenderer.prototype.setCameraPOI = function() {
     this.cameraControl.poi
 	= new THREE.Vector3(this.width/2, 0, -50);
+    this.cameraControl.distance = 2.1 * this.width;    
 }
 
 WaveRenderer.prototype.getBufferLength = function() {
@@ -855,37 +857,40 @@ KissFFTRenderer.prototype.getZ = function(i) {
 KissFFTRenderer.prototype.changeX = LineRenderer.prototype.changeX;
 KissFFTRenderer.prototype.changeY = undefined;
 
-// KissFFTRenderer.prototype.changeLastMaterial = function() {
-//     let self = this;
-//     let nShapes = self.nShapes;
-//     let prevObj = self.data.objectArray[(self.arrayIdx + nShapes -1) % nShapes];
-//     if (prevObj) {
-//       	// prevObj.material = self.oldMaterials[self.arrayIdx];
-// 	prevObj.traverse(function(o) {
-// 	    o.material = self.oldMaterials[self.arrayIdx];
-// 	});
-//     }
-// }
+// KissFFTRenderer.prototype.changeLastMaterial = undefined; 
 
-KissFFTRenderer.prototype.changeLastMaterial = undefined; 
+KissFFTRenderer.prototype.changeLastMaterial = function() {
+    let self = this;
+    let nShapes = self.nShapes;
+    let prevObj = self.data.objectArray[(self.arrayIdx + nShapes -1) % nShapes];
+    if (prevObj) {
+      	// prevObj.material = self.oldMaterials[self.arrayIdx];
+	prevObj.traverse(function(o) {
+	    o.material = self.oldMaterials[self.arrayIdx];
+	});
+    }
+}
 
-KissFFTRenderer.prototype.zStep = -30;
+
+KissFFTRenderer.prototype.zStep = -100;
 
 KissFFTRenderer.prototype.makeObject =
     function(prevVectorArry, vectorArray, material)
 {
-    let nlines = 3;
+    let nlines = 2;
     let group = new THREE.Group();
     let geos = new Array(nlines);
     for(let i = 0; i < nlines; i++) {
 	geos[i] = new THREE.Geometry();
     }
 
-    function log1p(v) {
-	// return v;
-	return Math.sign(v) * Math.log(1+Math.abs(v)) * 20;
+    function transform(v) {
+	return v * 0.5;
+	// return Math.sign(v) * Math.log(1+Math.abs(v)) * 20;
     }
 
+    let yarr = new Array(3);
+    let preX = 0;
     for(let i = 0; i < vectorArray.length; i++) {
 	let vertex = vectorArray[i];
 	let x = vertex.x;
@@ -894,16 +899,52 @@ KissFFTRenderer.prototype.makeObject =
 	
 	let abs = Math.sqrt(y*y + z*z);
 
-	let yarr = new Array(nlines);
-	yarr[0] = log1p(abs);
-	yarr[1] = log1p(y);
-	yarr[2] = log1p(z);
+	yarr[0] = transform(abs);
+	yarr[1] = transform(y);
+	yarr[2] = transform(z);
 
-	for(let j = 0; j < nlines; j++) {
-	    geos[j].vertices.push(
-		new THREE.Vector3(x, yarr[j], 0)
+	// for(let j = 0; j < nlines; j++) {
+	//     geos[j].vertices.push(
+	// 	new THREE.Vector3(x, yarr[j], 0)
+	//     );
+	// }
+	geos[0].vertices.push(
+	    new THREE.Vector3(x, yarr[0], 0)
+	);
+	{
+	    geos[1].vertices.push(
+		new THREE.Vector3(x-2, 0, 0)
+	    );	    
+	    geos[1].vertices.push(
+		new THREE.Vector3(x, yarr[1], yarr[2])
+	    );
+	    geos[1].vertices.push(
+		new THREE.Vector3(x+2, 0, 0)
 	    );
 	}
+	// {
+	//     geos[1].vertices.push(
+	// 	new THREE.Vector3(x-2, 0, 0)
+	//     );	    
+	//     geos[1].vertices.push(
+	// 	new THREE.Vector3(x, yarr[1], 0)
+	//     );
+	//     geos[1].vertices.push(
+	// 	new THREE.Vector3(x+2, 0, 0)
+	//     );
+	// }
+	// {
+	//     geos[2].vertices.push(
+	// 	new THREE.Vector3(x-2, 0, 0)
+	//     );	    
+	//     geos[2].vertices.push(
+	// 	new THREE.Vector3(x, 0, yarr[2])
+	//     );
+	//     geos[2].vertices.push(
+	// 	new THREE.Vector3(x+2, 0, 0)
+	//     );
+	// }
+	preX = x;
     }
 
     for(let i = 0; i < nlines; i++) {
