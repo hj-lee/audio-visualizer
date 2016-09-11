@@ -188,21 +188,8 @@ app.prepareRender = function() {
     // camera control
     
     document.addEventListener('keydown', function(event) {
-	let code = event.code;
-	if (self.currentRenderer && self.currentRenderer.cameraControl) {
-	    let cc = self.currentRenderer.cameraControl;
-	    if (code == 'KeyW') {
-		cc.up(camera);
-	    }
-	    else if (code == 'KeyS') {
-		cc.down(camera);
-	    }
-	    else if (code == 'KeyA') {
-		cc.left(camera);
-	    }
-	    else if (code == 'KeyD') {
-		cc.right(camera);
-	    }
+	if (self.currentRenderer && self.currentRenderer.keydown) {
+	    self.currentRenderer.keydown(event);
 	}
     });
     
@@ -258,18 +245,33 @@ function CameraControl(poi, distance, angleX, angleY) {
     this.angleX = angleX || Math.PI/6;
     this.angleY = angleY || 0;
 
+    this.translation = new THREE.Vector3(0, 0, 0);
+    
+
     this.angleStep = 3 * Math.PI / 180;
+    this.distanceStep = 10;
+    
     this.minAngleX = 0;
     this.maxAngleX = Math.PI/2;
+    
     this.minAngleY = -Math.PI/2;
     this.maxAngleY = Math.PI/2;
+
+    this.minDistance = 50;
+    this.maxDistance = 10000;
 }
 
 CameraControl.prototype.set = function(camera) {
-    if (this.angleX > this.maxAngleX) this.angleX = this.maxAngleX;
-    if (this.angleX < this.minAngleX) this.angleX = this.minAngleX;
-    if (this.angleY > this.maxAngleY) this.angleY = this.maxAngleY;
-    if (this.angleY < this.minAngleY) this.angleY = this.minAngleY;
+    function rangeCheck(v, min, max) {
+	if (v < min) return min;
+	else if (v > max) return max;
+	else return v;
+    }
+    this.angleX = rangeCheck(this.angleX, this.minAngleX, this.maxAngleX);
+    this.angleY = rangeCheck(this.angleY, this.minAngleY, this.maxAngleY);
+    this.distance = rangeCheck(this.distance,
+			       this.minDistance, this.maxDistance);
+
     
     camera.position.x = this.poi.x +
 	this.distance * Math.sin(this.angleY);
@@ -280,6 +282,13 @@ CameraControl.prototype.set = function(camera) {
 
     camera.rotation.x = -this.angleX;
     camera.rotation.y = this.angleY;
+
+    let tr = this.translation;
+    
+    camera.translateX(tr.x);
+    camera.translateY(tr.y);
+    camera.translateZ(tr.z);
+    
 };
 
 CameraControl.prototype.up = function(camera) {
@@ -299,6 +308,39 @@ CameraControl.prototype.right = function(camera) {
 
 CameraControl.prototype.left = function(camera) {
     this.angleY -= this.angleStep;
+    this.set(camera);
+};
+
+
+
+CameraControl.prototype.moveUp = function(camera) {
+    this.translation.y += this.distanceStep;
+    this.set(camera);
+};
+
+CameraControl.prototype.moveDown = function(camera) {
+    this.translation.y -= this.distanceStep;
+    this.set(camera);
+};
+
+CameraControl.prototype.moveRight = function(camera) {
+    this.translation.x += this.distanceStep;
+    this.set(camera);
+};
+
+CameraControl.prototype.moveLeft = function(camera) {
+    this.translation.x -= this.distanceStep;
+    this.set(camera);
+};
+
+
+CameraControl.prototype.forward = function(camera) {
+    this.distance += this.distanceStep;
+    this.set(camera);
+};
+
+CameraControl.prototype.backward = function(camera) {
+    this.distance -= this.distanceStep;
     this.set(camera);
 };
 
@@ -350,6 +392,69 @@ LineRenderer.prototype.cleanUp = function() {
     this.data = undefined;
 };
 
+
+LineRenderer.prototype.keydown = function(event) {
+    let code = event.code;
+    if (this.cameraControl && this.camera) {
+	let cc = this.cameraControl;
+	let camera = this.camera;
+	switch(code) {
+	case 'KeyW':
+	    cc.up(camera);
+	    break;
+	case 'KeyS':
+	    cc.down(camera);
+	    break;
+	case 'KeyA':
+	    cc.left(camera);
+	    break;
+	case 'KeyD':
+	    cc.right(camera);
+	    break;
+
+	case 'KeyI':
+	    cc.moveUp(camera);
+	    break;
+	case 'KeyK':
+	    cc.moveDown(camera);
+	    break;
+	case 'KeyJ':
+	    cc.moveLeft(camera);
+	    break;
+	case 'KeyL':
+	    cc.moveRight(camera);
+	    break;
+	    
+
+
+	case 'Digit1':
+	    cc.forward(camera);
+	    break;
+	case 'Digit2':
+	    cc.backward(camera);
+	    break;
+	case 'Digit3':
+	    this.zStep *= 1.2;
+	    break;
+	case 'Digit4':
+	    this.zStep /= 1.2;
+	    if (Math.abs(this.zStep) < 1) this.zStep = Math.sign(this.zStep);
+	    break;
+	case 'KeyR':
+	    this.prepareCameraControl();
+	    // MARK
+	    this.zStep = -10;
+	    cc.set(camera);
+	    break;
+
+	case 'Equal':
+	    this.notPause = !this.notPause;
+	}
+    }
+    // event.stopPropagation();
+};
+
+
 LineRenderer.prototype.makeMaterial = function(color) {
     return new THREE.LineBasicMaterial({
 	color: color
@@ -363,7 +468,9 @@ LineRenderer.prototype.makeObject =
     let geometry = new THREE.Geometry();
     geometry.vertices = vectorArray;
     return new THREE.Line(geometry, material);
-};
+    };
+
+
 
 ///////////////
 // LineRenderer begin
@@ -384,9 +491,12 @@ LineRenderer.prototype.getBufferLength = function() {
     return this.analyser.frequencyBinCount;
 };
 
-LineRenderer.prototype.setCameraPOI = function() {
+LineRenderer.prototype.prepareCameraControl = function() {
     this.cameraControl.poi
 	= new THREE.Vector3(this.width/2, this.height/3, -50);
+    this.cameraControl.translation.x = 0;
+    this.cameraControl.translation.y = 0;
+    this.cameraControl.translation.z = 0;
     this.cameraControl.distance = 2.1 * this.width;
 };
 
@@ -394,6 +504,8 @@ LineRenderer.prototype.prepare = function() {
     let app = this.app;
 
     this.scene = new THREE.Scene();
+
+    this.notPause = undefined;
     
     let analyser = app.analyser;
     this.analyser = analyser;
@@ -423,7 +535,7 @@ LineRenderer.prototype.prepare = function() {
     this.data.objectArray = new Array(nShapes);
 
     // camera
-    this.setCameraPOI();
+    this.prepareCameraControl();
     this.cameraControl.set(this.camera);
     
     this.material = this.material || this.makeMaterial(0xffffff);
@@ -548,6 +660,13 @@ LineRenderer.prototype.draw = function () {
 	
     }
 
+    // only render and return;
+    if(self.notPause) {
+	self.webGLRenderer.render(scene, self.camera);
+	return;
+    }
+    
+
     {
 	// remove old object
 	let oldObj = objectArray[(self.arrayIdx + 1)%nShapes];
@@ -586,7 +705,7 @@ LineRenderer.prototype.draw = function () {
 	}
     }
     
-    self.webGLRenderer.render(scene, app.camera);
+    self.webGLRenderer.render(scene, self.camera);
 
     self.data.prevVectorArry = vectorArray;
     self.arrayIdx = (self.arrayIdx + 1) % nShapes;
@@ -770,10 +889,12 @@ WaveRenderer.prototype = new LineRenderer;
 
 WaveRenderer.prototype.zStep = -10;
 
-WaveRenderer.prototype.setCameraPOI = function() {
+WaveRenderer.prototype.prepareCameraControl = function() {
+    LineRenderer.prototype.prepareCameraControl.call(this);
+    console.log(this.base);
     this.cameraControl.poi
 	= new THREE.Vector3(this.width/2, 0, -50);
-    this.cameraControl.distance = 2.1 * this.width;    
+    // this.cameraControl.distance = 2.1 * this.width;
 };
 
 WaveRenderer.prototype.getBufferLength = function() {
@@ -781,7 +902,7 @@ WaveRenderer.prototype.getBufferLength = function() {
 };
 
 WaveRenderer.prototype.prepare = function() {
-    this.base.prototype.prepare.call(this);
+    LineRenderer.prototype.prepare.call(this);
     this.maxDrawFreq = this.bufferLength;
 };
 
@@ -831,12 +952,12 @@ KissFFTRenderer.prototype.cleanUp = function() {
     disposeMaterials(this.material3);
     this.material3 = undefined;
     
-    this.base.prototype.cleanUp.call(this);
+    WaveRenderer.prototype.cleanUp.call(this);
 };
 
 KissFFTRenderer.prototype.getData = function(dataArray) {
     // get time domain data
-    this.base.prototype.getData.call(this, dataArray);
+    WaveRenderer.prototype.getData.call(this, dataArray);
     let size = this.bufferLength;
     let input = this.data.floatData;
     for (let i = 0; i < size; i++) {
