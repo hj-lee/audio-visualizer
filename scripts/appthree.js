@@ -509,7 +509,8 @@ LineRenderer.prototype.prepare = function() {
     
     let analyser = app.analyser;
     this.analyser = analyser;
-
+    
+    this.audioCtx = app.audioCtx;
     this.webGLRenderer = app.webGLRenderer;
     this.camera = app.camera;
 
@@ -651,19 +652,30 @@ LineRenderer.prototype.draw = function () {
     let maxDrawFreq = self.maxDrawFreq;
     let width = self.width;
 
-    self.frameCnt++;
-    if (self.frameCnt % self.checkFrameRate == 0) {
-	let now = performance.now();
-	let rate = self.checkFrameRate / (now - self.prevTime) * 1e3;
-	$("#frameRate").text(rate.toFixed(2));
-	self.prevTime = now;
+    {
+	let drawStart = performance.now();
+	self.frameCnt++;
+	if (self.frameCnt % self.checkFrameRate == 0) {
+	    let now = drawStart;
+	    let rate = self.checkFrameRate / (now - self.prevTime) * 1e3;
+	    $("#frameRate").text(rate.toFixed(2));
+	    self.prevTime = now;
+	}
 	
-    }
-
-    // only render and return;
-    if(self.notPause) {
-	self.webGLRenderer.render(scene, self.camera);
-	return;
+	let skip = false;
+	let prevDrawStart = self.prevDrawStart;
+	if (prevDrawStart) {
+	    let diff = (drawStart - prevDrawStart) / 1000;
+	    let frameLength = self.analyser.fftSize / self.audioCtx.sampleRate;
+	    skip = (diff < frameLength / 3);
+	}
+	// only render and return;
+	if(self.notPause || skip) {
+	    self.webGLRenderer.render(scene, self.camera);
+	    return;
+	} else {
+	    self.prevDrawStart = drawStart;
+	}
     }
     
 
@@ -709,7 +721,6 @@ LineRenderer.prototype.draw = function () {
 
     self.data.prevVectorArry = vectorArray;
     self.arrayIdx = (self.arrayIdx + 1) % nShapes;
-    
 };
 
 
