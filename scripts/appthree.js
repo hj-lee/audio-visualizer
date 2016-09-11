@@ -242,13 +242,13 @@ function CameraControl(poi, distance, angleX, angleY) {
     let height = 400;
     this.poi = poi || new THREE.Vector3(width/2, height/3, -150); 
     this.distance = distance || 2.1 * width;
-    this.angleX = angleX || Math.PI/6;
-    this.angleY = angleY || 0;
+    this.angleX = angleX || 12 * Math.PI/180;
+    this.angleY = angleY || 6 * Math.PI/180;
 
     this.translation = new THREE.Vector3(0, 0, 0);
     
 
-    this.angleStep = 3 * Math.PI / 180;
+    this.angleStep = 1 * Math.PI / 180;
     this.distanceStep = 10;
     
     this.minAngleX = 0;
@@ -371,7 +371,7 @@ function LineRenderer(id, desc) {
 LineRenderer.prototype = new Renderer;
 
 // distance between each frame
-LineRenderer.prototype.zStep = -10;
+LineRenderer.prototype.zStep = -50;
 
 LineRenderer.prototype.cleanUp = function() {
     // dispose scene objects
@@ -443,7 +443,7 @@ LineRenderer.prototype.keydown = function(event) {
 	case 'KeyR':
 	    this.prepareCameraControl();
 	    // MARK
-	    this.zStep = -10;
+	    this.zStep = -50;
 	    cc.set(camera);
 	    break;
 
@@ -887,7 +887,7 @@ function WaveRenderer(id, desc) {
 
 WaveRenderer.prototype = new LineRenderer;
 
-WaveRenderer.prototype.zStep = -10;
+// WaveRenderer.prototype.zStep = -10;
 
 WaveRenderer.prototype.prepareCameraControl = function() {
     LineRenderer.prototype.prepareCameraControl.call(this);
@@ -994,7 +994,7 @@ KissFFTRenderer.prototype.changeLastMaterial = function() {
 };
 
 
-KissFFTRenderer.prototype.zStep = -10;
+// KissFFTRenderer.prototype.zStep = -10;
 
 KissFFTRenderer.prototype.makeObject =
     function(prevVectorArry, vectorArray, material)
