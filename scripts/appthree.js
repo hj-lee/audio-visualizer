@@ -103,7 +103,7 @@ app.prepareAnalyser = function() {
 app.prepareMisc = function() {
     // variables
     // max frequency of interest
-    this.maxShowingFrequency = 20000;
+    this.maxShowingFrequency = 15000;
     
     // set sample rate
     let sampleRate = this.audioCtx.sampleRate;
@@ -996,10 +996,10 @@ KissFFTRenderer.prototype.changeLastMaterial = function() {
 
 // KissFFTRenderer.prototype.zStep = -10;
 
-KissFFTRenderer.prototype.makeObject =
-    function(prevVectorArry, vectorArray, material)
-{
-    let nlines = 1;
+KissFFTRenderer.prototype.makeObject = function(
+    prevVectorArry, vectorArray, material
+) {
+    let nlines = 2;
     let group = new THREE.Group();
     let geos = new Array(nlines);
     for(let i = 0; i < nlines; i++) {
@@ -1031,39 +1031,39 @@ KissFFTRenderer.prototype.makeObject =
 	//     );
 	// }
 	geos[0].vertices.push(
-	    new THREE.Vector3(x, yarr[0], 0)
+	    new THREE.Vector3(x, yarr[0]-0, 0)
 	);
+	{
+	    geos[1].vertices.push(
+	    	new THREE.Vector3(x-0.5, 0, 0)
+	    );	    
+	    geos[1].vertices.push(
+		new THREE.Vector3(x, yarr[1]+0, yarr[2])
+	    );
+	    geos[1].vertices.push(
+	    	new THREE.Vector3(x+0.5, 0, 0)
+	    );
+	}
 	// {
 	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x-0.5, 0, 0)
-	//     );	    
-	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x, yarr[1], yarr[2])
-	//     );
-	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x+0.5, 0, 0)
-	//     );
-	// }
-	// {
-	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x-1, 0, 0)
+	//     	new THREE.Vector3(x-1, 0, 0)
 	//     );	    
 	//     geos[1].vertices.push(
 	// 	new THREE.Vector3(x, yarr[1], 0)
 	//     );
 	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x+1, 0, 0)
+	//     	new THREE.Vector3(x, 0, 0)
 	//     );
 	// }
 	// {
 	//     geos[2].vertices.push(
-	// 	new THREE.Vector3(x-1, 0, 0)
+	//     	new THREE.Vector3(x, 0, 0)
 	//     );	    
 	//     geos[2].vertices.push(
 	// 	new THREE.Vector3(x, 0, yarr[2])
 	//     );
 	//     geos[2].vertices.push(
-	// 	new THREE.Vector3(x+1, 0, 0)
+	//     	new THREE.Vector3(x+1, 0, 0)
 	//     );
 	// }
 	preX = x;
@@ -1073,6 +1073,15 @@ KissFFTRenderer.prototype.makeObject =
 	let line = new THREE.Line(geos[i], this.material3[i]);
 	group.add(line);
     }
+
+    { // straight line
+	let geo = new THREE.Geometry();
+	geo.vertices.push(new THREE.Vector3(0, 0, 0));
+	geo.vertices.push(new THREE.Vector3(preX, 0, 0));
+	let line = new THREE.Line(geo, this.material3[0]);
+	group.add(line);
+    }
+    
     return group;
 };
 
