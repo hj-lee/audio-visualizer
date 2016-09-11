@@ -1004,23 +1004,96 @@ KissFFTRenderer.prototype.changeLastMaterial = function() {
     }
 };
 
-
 // KissFFTRenderer.prototype.zStep = -10;
+
+//////////////////////////////////////
+
+////
+// FftObjectMaker
+
+function FftObjectMaker() {
+}
+
+
+FftObjectMaker.prototype.nlines = 2;
+
+FftObjectMaker.prototype.transform = function(v) {
+    // return v * 0.5;
+    return Math.sign(v) * Math.log(1+Math.abs(v)) * 20;    
+};
+
+FftObjectMaker.prototype.stepGeometry = function(geos, i, x, yarr) {
+    geos[0].vertices.push(
+	new THREE.Vector3(x, yarr[0]-0, 0)
+    );
+    {
+	geos[1].vertices.push(
+	    new THREE.Vector3(x-0.5, 0, 0)
+	);	    
+	geos[1].vertices.push(
+	    new THREE.Vector3(x, yarr[1]+0, yarr[2])
+	);
+	geos[1].vertices.push(
+	    new THREE.Vector3(x+0.5, 0, 0)
+	);
+    }
+    // {
+    //     geos[1].vertices.push(
+    //     	new THREE.Vector3(x-1, 0, 0)
+    //     );	    
+    //     geos[1].vertices.push(
+    // 	new THREE.Vector3(x, yarr[1], 0)
+    //     );
+    //     geos[1].vertices.push(
+    //     	new THREE.Vector3(x, 0, 0)
+    //     );
+    // }
+    // {
+    //     geos[2].vertices.push(
+    //     	new THREE.Vector3(x, 0, 0)
+    //     );	    
+    //     geos[2].vertices.push(
+    // 	new THREE.Vector3(x, 0, yarr[2])
+    //     );
+    //     geos[2].vertices.push(
+    //     	new THREE.Vector3(x+1, 0, 0)
+    //     );
+    // }
+};
+
+
+KissFFTRenderer.prototype.objectMakers = [];
+KissFFTRenderer.prototype.objectMakerIdx = 0;
+
+KissFFTRenderer.prototype.currentObjectMaker = function() {
+    return this.objectMakers[this.objectMakerIdx];
+};
+
+KissFFTRenderer.prototype.nextObjectMaker = function() {
+    this.objectMakerIdx = (this.objectMakerIdx + 1) % this.objectMakers.lenth;
+    return this.currentObjectMaker();
+};
+
+KissFFTRenderer.prototype.objectMakers.push(new FftObjectMaker());
+
+
+
+
+// makeObject
+
 
 KissFFTRenderer.prototype.makeObject = function(
     prevVectorArry, vectorArray, material
 ) {
-    let nlines = 2;
-    let group = new THREE.Group();
-    let geos = new Array(nlines);
-    for(let i = 0; i < nlines; i++) {
+    let maker = this.currentObjectMaker();
+    let nlines = maker.nlines;
+    
+    group = new THREE.Group();
+    geos = new Array(nlines);
+    for(let i = 0; i <nlines; i++) {
 	geos[i] = new THREE.Geometry();
     }
 
-    function transform(v) {
-	// return v * 0.5;
-	return Math.sign(v) * Math.log(1+Math.abs(v)) * 20;
-    }
 
     let yarr = new Array(3);
     let preX = 0;
@@ -1032,55 +1105,14 @@ KissFFTRenderer.prototype.makeObject = function(
 	
 	let abs = Math.sqrt(y*y + z*z);
 
-	yarr[0] = transform(abs);
-	yarr[1] = transform(y);
-	yarr[2] = transform(z);
+	yarr[0] = maker.transform(abs);
+	yarr[1] = maker.transform(y);
+	yarr[2] = maker.transform(z);
 
-	// for(let j = 0; j < nlines; j++) {
-	//     geos[j].vertices.push(
-	// 	new THREE.Vector3(x, yarr[j], 0)
-	//     );
-	// }
-	geos[0].vertices.push(
-	    new THREE.Vector3(x, yarr[0]-0, 0)
-	);
-	{
-	    geos[1].vertices.push(
-	    	new THREE.Vector3(x-0.5, 0, 0)
-	    );	    
-	    geos[1].vertices.push(
-		new THREE.Vector3(x, yarr[1]+0, yarr[2])
-	    );
-	    geos[1].vertices.push(
-	    	new THREE.Vector3(x+0.5, 0, 0)
-	    );
-	}
-	// {
-	//     geos[1].vertices.push(
-	//     	new THREE.Vector3(x-1, 0, 0)
-	//     );	    
-	//     geos[1].vertices.push(
-	// 	new THREE.Vector3(x, yarr[1], 0)
-	//     );
-	//     geos[1].vertices.push(
-	//     	new THREE.Vector3(x, 0, 0)
-	//     );
-	// }
-	// {
-	//     geos[2].vertices.push(
-	//     	new THREE.Vector3(x, 0, 0)
-	//     );	    
-	//     geos[2].vertices.push(
-	// 	new THREE.Vector3(x, 0, yarr[2])
-	//     );
-	//     geos[2].vertices.push(
-	//     	new THREE.Vector3(x+1, 0, 0)
-	//     );
-	// }
-	preX = x;
+	maker.stepGeometry(geos, i, x, yarr);
     }
 
-    for(let i = 0; i < nlines; i++) {
+    for(let i = 0; i < maker.nlines; i++) {
 	let line = new THREE.Line(geos[i], this.material3[i]);
 	group.add(line);
     }
