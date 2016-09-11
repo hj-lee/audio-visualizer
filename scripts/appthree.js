@@ -412,6 +412,7 @@ LineRenderer.prototype.keydown = function(event) {
 	    cc.right(camera);
 	    break;
 
+	    
 	case 'KeyI':
 	    cc.moveUp(camera);
 	    break;
@@ -446,7 +447,6 @@ LineRenderer.prototype.keydown = function(event) {
 	    this.zStep = -50;
 	    cc.set(camera);
 	    break;
-
 	case 'Equal':
 	    this.notPause = !this.notPause;
 	}
@@ -902,7 +902,6 @@ WaveRenderer.prototype = new LineRenderer;
 
 WaveRenderer.prototype.prepareCameraControl = function() {
     LineRenderer.prototype.prepareCameraControl.call(this);
-    console.log(this.base);
     this.cameraControl.poi
 	= new THREE.Vector3(this.width/2, 0, -50);
     // this.cameraControl.distance = 2.1 * this.width;
@@ -1011,11 +1010,9 @@ KissFFTRenderer.prototype.changeLastMaterial = function() {
 ////
 // FftObjectMaker
 
-function FftObjectMaker() {
+function FftObjectMaker(nlines = 2) {
+    this.nlines = nlines;
 }
-
-
-FftObjectMaker.prototype.nlines = 2;
 
 FftObjectMaker.prototype.transform = function(v) {
     // return v * 0.5;
@@ -1024,7 +1021,7 @@ FftObjectMaker.prototype.transform = function(v) {
 
 FftObjectMaker.prototype.stepGeometry = function(geos, i, x, yarr) {
     geos[0].vertices.push(
-	new THREE.Vector3(x, yarr[0]-0, 0)
+	new THREE.Vector3(x, yarr[0], 0)
     );
     {
 	geos[1].vertices.push(
@@ -1037,28 +1034,6 @@ FftObjectMaker.prototype.stepGeometry = function(geos, i, x, yarr) {
 	    new THREE.Vector3(x+0.5, 0, 0)
 	);
     }
-    // {
-    //     geos[1].vertices.push(
-    //     	new THREE.Vector3(x-1, 0, 0)
-    //     );	    
-    //     geos[1].vertices.push(
-    // 	new THREE.Vector3(x, yarr[1], 0)
-    //     );
-    //     geos[1].vertices.push(
-    //     	new THREE.Vector3(x, 0, 0)
-    //     );
-    // }
-    // {
-    //     geos[2].vertices.push(
-    //     	new THREE.Vector3(x, 0, 0)
-    //     );	    
-    //     geos[2].vertices.push(
-    // 	new THREE.Vector3(x, 0, yarr[2])
-    //     );
-    //     geos[2].vertices.push(
-    //     	new THREE.Vector3(x+1, 0, 0)
-    //     );
-    // }
 };
 
 
@@ -1070,11 +1045,72 @@ KissFFTRenderer.prototype.currentObjectMaker = function() {
 };
 
 KissFFTRenderer.prototype.nextObjectMaker = function() {
-    this.objectMakerIdx = (this.objectMakerIdx + 1) % this.objectMakers.lenth;
-    return this.currentObjectMaker();
+    this.objectMakerIdx = (this.objectMakerIdx + 1) % this.objectMakers.length;
+    // return this.currentObjectMaker();
 };
 
-KissFFTRenderer.prototype.objectMakers.push(new FftObjectMaker());
+{
+    let objectMakers = KissFFTRenderer.prototype.objectMakers;
+
+    // 0
+    objectMakers.push(new FftObjectMaker());
+
+    //
+    {
+	let oneLineMaker = new FftObjectMaker(1);
+	oneLineMaker.stepGeometry = function(geos, i, x, yarr) {
+	    geos[0].vertices.push(new THREE.Vector3(x, yarr[0], 0));
+	};
+	objectMakers.push(oneLineMaker);
+
+	let twoLineMaker = new FftObjectMaker(2);
+	twoLineMaker.stepGeometry = function(geos, i, x, yarr) {
+	    oneLineMaker.stepGeometry(geos, i, x, yarr);
+	    geos[1].vertices.push(new THREE.Vector3(x, yarr[1], 0));
+	};
+
+	objectMakers.push(twoLineMaker);
+	
+	let threeLineMaker = new FftObjectMaker(3);
+	
+	threeLineMaker.stepGeometry = function(geos, i, x, yarr) {
+	    twoLineMaker.stepGeometry(geos, i, x, yarr);
+	    geos[2].vertices.push(new THREE.Vector3(x, yarr[2], 0));
+	};
+	objectMakers.push(threeLineMaker);
+    }
+    //
+    {
+	let twoLineMaker = new FftObjectMaker(2);
+	twoLineMaker.stepGeometry = function(geos, i, x, yarr) {
+	    geos[0].vertices.push(
+		new THREE.Vector3(x, yarr[0], 0)
+	    );
+	    {
+		geos[1].vertices.push(
+    		    new THREE.Vector3(x, yarr[1], 0)
+		);
+	    }	    
+	};
+	objectMakers.push(twoLineMaker);
+    }
+    // 
+    {
+	let normalOM = new FftObjectMaker();
+	normalOM.transform = function(v) {
+	    return v * 0.5;
+	};
+	objectMakers.push(normalOM);
+    }
+}
+
+KissFFTRenderer.prototype.keydown = function(event) {
+    LineRenderer.prototype.keydown.call(this, event);
+    let code = event.code;
+    if (code === 'KeyM') {
+	this.nextObjectMaker();
+    }
+};
 
 
 
@@ -1096,7 +1132,6 @@ KissFFTRenderer.prototype.makeObject = function(
 
 
     let yarr = new Array(3);
-    let preX = 0;
     for(let i = 0; i < vectorArray.length; i++) {
 	let vertex = vectorArray[i];
 	let x = vertex.x;
@@ -1109,7 +1144,7 @@ KissFFTRenderer.prototype.makeObject = function(
 	yarr[1] = maker.transform(y);
 	yarr[2] = maker.transform(z);
 
-	maker.stepGeometry(geos, i, x, yarr);
+	maker.stepGeometry(geos, i, x, yarr);	
     }
 
     for(let i = 0; i < maker.nlines; i++) {
@@ -1119,8 +1154,9 @@ KissFFTRenderer.prototype.makeObject = function(
 
     { // straight line
 	let geo = new THREE.Geometry();
+	let lastX = vectorArray[vectorArray.length-1].x;
 	geo.vertices.push(new THREE.Vector3(0, 0, 0));
-	geo.vertices.push(new THREE.Vector3(preX, 0, 0));
+	geo.vertices.push(new THREE.Vector3(lastX, 0, 0));
 	let line = new THREE.Line(geo, this.material3[0]);
 	group.add(line);
     }
