@@ -103,7 +103,7 @@ app.prepareAnalyser = function() {
 app.prepareMisc = function() {
     // variables
     // max frequency of interest
-    this.maxShowingFrequency = 15000;
+    this.maxShowingFrequency = 20000;
     
     // set sample rate
     let sampleRate = this.audioCtx.sampleRate;
