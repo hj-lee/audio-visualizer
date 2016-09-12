@@ -943,14 +943,37 @@ function KissFFTRenderer(id, desc) {
 KissFFTRenderer.prototype = new WaveRenderer;
 
 KissFFTRenderer.prototype.prepare = function() {
-    // no need to reset maxDrawFreq
+    // call LineRenderer.prepare instead of WaveRenderer
     LineRenderer.prototype.prepare.call(this);
 
-    let fftSize = this.analyser.fftSize;
-    this.data.floatData = new Float32Array(fftSize);
-    this.data.fftproc = new KissFFT(fftSize);
-    this.normalizeFactor = this.height / 10 / Math.sqrt(fftSize);
+    let analyser = this.analyser;
 
+    let skipFactor = 1;
+    {
+	let logSample = Math.log(analyser.context.sampleRate);
+	let logShowing = Math.log(this.maxShowingFrequency);
+	let power = Math.floor(Math.log2(analyser.context.sampleRate/this.maxShowingFrequency)) - 1;
+	power = Math.max(0, power);
+	skipFactor = Math.pow(2, power);
+	
+	console.log('Kiss skipFactor: ' + skipFactor);
+    }
+    this.skipFactor = skipFactor;
+    let fftSize = this.analyser.fftSize;
+    this.data.floatData = new Float32Array(fftSize/skipFactor);
+    this.data.fftproc = new KissFFT(fftSize/skipFactor);
+    this.normalizeFactor = this.height / fftSize * 7 * skipFactor;
+
+    // anyway need to recalculate maxDrawFreq
+    // recalculate maxDrawFreq
+    let maxDrawFreq = this.maxShowingFrequency /
+    	    (analyser.context.sampleRate / analyser.fftSize);
+    maxDrawFreq = Math.min(maxDrawFreq, analyser.frequencyBinCount/skipFactor);
+    this.maxDrawFreq = maxDrawFreq;
+    console.log('Kiss - input size: ' + this.data.floatData.length);
+    console.log('Kiss - maxDrawFreq: ' + maxDrawFreq);
+    
+    
     this.material3 = new Array(3);
     let material3 = this.material3;
     material3[0] = this.makeMaterial(0xffffff);
@@ -970,12 +993,15 @@ KissFFTRenderer.prototype.getData = function(dataArray) {
     WaveRenderer.prototype.getData.call(this, dataArray);
     let size = this.bufferLength;
     let input = this.data.floatData;
-    for (let i = 0; i < size; i++) {
-	input[i] = (dataArray[i]-127.5);
+    let skipFactor = this.skipFactor;
+    for (let i = 0; i < size/skipFactor; i++) {
+	let idx = i * skipFactor;
+	input[i] = (dataArray[idx]-127.5);
 	if (Math.abs(input[i]) < 0.6) input[i] = 0;
 	input[i] /= 256.0;
     }
     this.data.out = this.data.fftproc.forward(input);
+    // console.log('fft out size: ' + this.data.out.length);
 };
 
 KissFFTRenderer.prototype.getY = function(i) {
@@ -1079,26 +1105,11 @@ KissFFTRenderer.prototype.nextObjectMaker = function() {
 	};
 	objectMakers.push(threeLineMaker);
     }
-    //
-    {
-	let twoLineMaker = new FftObjectMaker(2);
-	twoLineMaker.stepGeometry = function(geos, i, x, yarr) {
-	    geos[0].vertices.push(
-		new THREE.Vector3(x, yarr[0], 0)
-	    );
-	    {
-		geos[1].vertices.push(
-    		    new THREE.Vector3(x, yarr[1], 0)
-		);
-	    }	    
-	};
-	objectMakers.push(twoLineMaker);
-    }
     // 
     {
 	let normalOM = new FftObjectMaker();
-	normalOM.transform = function(v) {
-	    return v * 0.5;
+	normalOM.transform = function(v, normalizeFactor) {
+	    return v * normalizeFactor;
 	};
 	objectMakers.push(normalOM);
     }
@@ -1130,6 +1141,7 @@ KissFFTRenderer.prototype.makeObject = function(
 	geos[i] = new THREE.Geometry();
     }
 
+    let normalizeFactor = this.normalizeFactor;
 
     let yarr = new Array(3);
     for(let i = 0; i < vectorArray.length; i++) {
@@ -1140,9 +1152,9 @@ KissFFTRenderer.prototype.makeObject = function(
 	
 	let abs = Math.sqrt(y*y + z*z);
 
-	yarr[0] = maker.transform(abs);
-	yarr[1] = maker.transform(y);
-	yarr[2] = maker.transform(z);
+	yarr[0] = maker.transform(abs, normalizeFactor);
+	yarr[1] = maker.transform(y, normalizeFactor);
+	yarr[2] = maker.transform(z, normalizeFactor);
 
 	maker.stepGeometry(geos, i, x, yarr);	
     }
