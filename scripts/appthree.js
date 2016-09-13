@@ -404,6 +404,15 @@ LineRenderer.prototype.keydown = function(event) {
 	let cc = this.cameraControl;
 	let camera = this.camera;
 	switch(code) {
+	case 'KeyQ':
+	    cc.forward(camera);
+	    keyUsed = true;
+	    break;
+	case 'KeyZ':
+	    cc.backward(camera);
+	    keyUsed = true;
+	    break;
+	    
 	case 'KeyA':
 	    cc.left(camera);
 	    keyUsed = true;
@@ -412,20 +421,12 @@ LineRenderer.prototype.keydown = function(event) {
 	    cc.right(camera);
 	    keyUsed = true;
 	    break;
-	case 'KeyW':
-	    cc.forward(camera);
-	    keyUsed = true;
-	    break;
-	case 'KeyS':
-	    cc.backward(camera);
-	    keyUsed = true;
-	    break;
 
-	case 'KeyQ':
+	case 'KeyW':
 	    cc.up(camera);
 	    keyUsed = true;
 	    break;
-	case 'KeyZ':
+	case 'KeyS':
 	    cc.down(camera);
 	    keyUsed = true;
 	    break;

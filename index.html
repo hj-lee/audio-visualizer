@@ -90,23 +90,35 @@
   <input type="checkbox" id="toggle">
   <aside>
     <h2>Information</h2>
-
-    <p>Voice-change-O-matic is built using:</p>
+    <p>This page is built using:</p>
 
     <ul>
+      <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Navigator.getUserMedia">getUserMedia</a>.</li>
 
-      <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Navigator.getUserMedia">getUserMedia</a>, which is currently supported in Firefox, Opera (desktop/mobile) and Chrome (desktop only.) Firefox requires no prefix; the others require <code>webkit</code> prefixes.</li>
+      <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API">Web Audio API</a>.</li>
 
-      <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API">Web Audio API</a>, which is currently supported in Firefox, Chrome, Safari (desktop/mobile) and Opera (desktop only). Firefox and Opera require no prefix; Chrome requires <code>webkit</code> prefixes.</li>
+      <li><a href="https://github.com/mdn/voice-change-o-matic">Voice-Change-O-Matic</a> - MDN getUserMedia and Web Aduo API demo </li>
+      
+      <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API">Web GL API</a>.</li>
 
+      <li><a href="http://threejs.org/">Three.js</a> - A WebGL Framework.</li>
+      
+      <li><a href="https://sourceforge.net/projects/kissfft/">KissFFT</a> -  A FFT implementation in C.</li>
+
+      <li><a href="https://github.com/kripken/emscripten">Emscripten</a> - An LLVM-to-Javascript compiler. Used to compile KissFFT to Javascript. (I did not compile KissFFT by myself. I copied compiled js files from <a href="http://all-day-breakfast.com/js-dsp-test/fft/">Forward real-complex FFT speed test</a>)</li>
+
+      
     </ul>
-    <button id="install-btn">Install app</button>
+    <p>Control:</p>
+    <ul>
+      <li>Q,Z : Move Camera Forward, Backward</li>
+      <li>W,S,A,D : Rotate Scene Up, Down, Left and Right</li>
+      <li>Arrows : Move Camera Up, Down, Left and Right</li>
+      <li>Space : Toggle Pause</li>
+      <li>R : Reset Camera Position and Z Step</li>
+      <li>1,2 : Increase/Decrease Z Step</li>
+      <li>M : [Line(Complex) style only] Sub style change</li>
   </aside>
-
-  <!-- The following element pulls in the script for the default template functionality -->
-  <script src="scripts/install.js"></script>  
-
-  
   <!-- Below is your custom application script -->
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
   <!-- <script src="https://ajax.googleapis.com/ajax/libs/threejs/r76/three.min.js"></script> -->
