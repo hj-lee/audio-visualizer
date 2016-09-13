@@ -189,9 +189,11 @@ app.prepareRender = function() {
     
     window.addEventListener('keydown', function(event) {
 	if (self.currentRenderer && self.currentRenderer.keydown) {
-	    self.currentRenderer.keydown(event);
+	    res = self.currentRenderer.keydown(event);
+	    if(res) {
+		event.preventDefault();
+	    }
 	}
-	event.preventDefault();
     });
     
     // event listeners to change settings
@@ -336,12 +338,12 @@ CameraControl.prototype.moveLeft = function(camera) {
 
 
 CameraControl.prototype.forward = function(camera) {
-    this.distance += this.distanceStep;
+    this.distance -= this.distanceStep;
     this.set(camera);
 };
 
 CameraControl.prototype.backward = function(camera) {
-    this.distance -= this.distanceStep;
+    this.distance += this.distanceStep;
     this.set(camera);
 };
 
@@ -394,65 +396,84 @@ LineRenderer.prototype.cleanUp = function() {
 };
 
 
+
 LineRenderer.prototype.keydown = function(event) {
     let code = event.code;
+    let keyUsed = false;
     if (this.cameraControl && this.camera) {
 	let cc = this.cameraControl;
 	let camera = this.camera;
 	switch(code) {
-	case 'KeyW':
-	    cc.up(camera);
-	    break;
-	case 'KeyS':
-	    cc.down(camera);
-	    break;
 	case 'KeyA':
 	    cc.left(camera);
+	    keyUsed = true;
 	    break;
 	case 'KeyD':
 	    cc.right(camera);
+	    keyUsed = true;
+	    break;
+	case 'KeyW':
+	    cc.forward(camera);
+	    keyUsed = true;
+	    break;
+	case 'KeyS':
+	    cc.backward(camera);
+	    keyUsed = true;
 	    break;
 
+	case 'KeyQ':
+	    cc.up(camera);
+	    keyUsed = true;
+	    break;
+	case 'KeyZ':
+	    cc.down(camera);
+	    keyUsed = true;
+	    break;
 	    
-	case 'KeyI':
+	    
+	case 'ArrowUp':
 	    cc.moveUp(camera);
+	    keyUsed = true;
 	    break;
-	case 'KeyK':
+	case 'ArrowDown':
 	    cc.moveDown(camera);
+	    keyUsed = true;
 	    break;
-	case 'KeyJ':
+	case 'ArrowLeft':
 	    cc.moveLeft(camera);
+	    keyUsed = true;
 	    break;
-	case 'KeyL':
+	case 'ArrowRight':
 	    cc.moveRight(camera);
+	    keyUsed = true;
 	    break;
 	    
 
 
 	case 'Digit1':
-	    cc.forward(camera);
+	    this.zStep *= 1.2;
+	    keyUsed = true;
 	    break;
 	case 'Digit2':
-	    cc.backward(camera);
-	    break;
-	case 'Digit3':
-	    this.zStep *= 1.2;
-	    break;
-	case 'Digit4':
 	    this.zStep /= 1.2;
 	    if (Math.abs(this.zStep) < 1) this.zStep = Math.sign(this.zStep);
+	    keyUsed = true;
 	    break;
+	    
 	case 'KeyR':
 	    this.prepareCameraControl();
 	    // MARK
 	    this.zStep = -50;
 	    cc.set(camera);
+	    keyUsed = true;
 	    break;
-	case 'Equal':
+	case 'Space':
 	    this.notPause = !this.notPause;
+	    keyUsed = true;
+	    break;
 	}
     }
-    // event.stopPropagation();
+    return keyUsed;
 };
 
 
@@ -1117,11 +1138,13 @@ KissFFTRenderer.prototype.nextObjectMaker = function() {
 }
 
 KissFFTRenderer.prototype.keydown = function(event) {
-    LineRenderer.prototype.keydown.call(this, event);
+    let keyUsed = LineRenderer.prototype.keydown.call(this, event);
     let code = event.code;
     if (code === 'KeyM') {
 	this.nextObjectMaker();
+	keyUsed = true;
     }
+    return keyUsed;
 };
 
 
