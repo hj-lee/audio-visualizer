@@ -187,10 +187,11 @@ app.prepareRender = function() {
     /////////////////////////////////////////////////////
     // camera control
     
-    document.addEventListener('keydown', function(event) {
+    window.addEventListener('keydown', function(event) {
 	if (self.currentRenderer && self.currentRenderer.keydown) {
 	    self.currentRenderer.keydown(event);
 	}
+	event.preventDefault();
     });
     
     // event listeners to change settings
